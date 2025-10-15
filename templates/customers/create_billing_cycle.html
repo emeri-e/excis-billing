@@ -1,0 +1,101 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Create Billing Cycle{% endblock %}
+{% block page_title %}Create Billing Cycle{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+    <div style="background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 32px; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0 0 8px 0; font-size: 24px;">Create Billing Cycle</h1>
+            <p style="margin: 0; opacity: 0.9;">Configure a new billing cycle with optional associations</p>
+        </div>
+
+        <form method="post" style="padding: 32px;">
+            {% csrf_token %}
+            
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; font-weight: 600; margin-bottom: 8px;">Name *</label>
+                {{ form.name }}
+            </div>
+
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; font-weight: 600; margin-bottom: 8px;">Cycle Type *</label>
+                {{ form.cycle_type }}
+            </div>
+
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; font-weight: 600; margin-bottom: 8px;">Customer</label>
+                {{ form.customer }}
+                <small style="display: block; margin-top: 4px; color: #64748b;">Optional - Link to specific customer</small>
+            </div>
+
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; font-weight: 600; margin-bottom: 8px;">Project</label>
+                {{ form.project }}
+                <small style="display: block; margin-top: 4px; color: #64748b;">Optional - Link to specific project</small>
+            </div>
+
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; font-weight: 600; margin-bottom: 8px;">Account</label>
+                {{ form.account }}
+                <small style="display: block; margin-top: 4px; color: #64748b;">Optional - Link to specific account</small>
+            </div>
+
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; font-weight: 600; margin-bottom: 8px;">Description</label>
+                {{ form.description }}
+            </div>
+
+            <div style="display: flex; gap: 12px; justify-content: flex-end; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+                <a href="{% url 'customers:billing_cycles_list' %}" style="padding: 10px 20px; border: 2px solid #d1d5db; border-radius: 8px; text-decoration: none; color: #374151;">Cancel</a>
+                <button type="submit" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer;">Create Billing Cycle</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const customerSelect = document.getElementById('id_customer');
+    const projectSelect = document.getElementById('id_project');
+    const accountSelect = document.getElementById('id_account');
+    
+    customerSelect.addEventListener('change', function() {
+        const customerId = this.value;
+        
+        if (customerId) {
+            // Load projects
+            fetch(`{% url 'customers:ajax_load_projects' %}?customer_id=${customerId}`)
+                .then(response => response.json())
+                .then(data => {
+                    projectSelect.innerHTML = '<option value="">---------</option>';
+                    data.projects.forEach(project => {
+                        const option = document.createElement('option');
+                        option.value = project.id;
+                        option.textContent = `${project.name} (${project.code})`;
+                        projectSelect.appendChild(option);
+                    });
+                });
+            
+            // Load accounts
+            fetch(`{% url 'customers:ajax_load_accounts' %}?customer_id=${customerId}`)
+                .then(response => response.json())
+                .then(data => {
+                    accountSelect.innerHTML = '<option value="">---------</option>';
+                    data.accounts.forEach(account => {
+                        const option = document.createElement('option');
+                        option.value = account.id;
+                        option.textContent = `${account.name} (${account.account_id})`;
+                        accountSelect.appendChild(option);
+                    });
+                });
+        } else {
+            projectSelect.innerHTML = '<option value="">---------</option>';
+            accountSelect.innerHTML = '<option value="">---------</option>';
+        }
+    });
+});
+</script>
+{% endblock %}

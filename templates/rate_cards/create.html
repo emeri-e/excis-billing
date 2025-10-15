@@ -1,0 +1,121 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Create Rate Card - Excis Billing System{% endblock %}
+{% block page_title %}Create Rate Card{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-xl-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title">New Rate Card</h4>
+                <p class="mb-0 text-muted">Define pricing structure for a customer</p>
+            </div>
+            
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label"><strong>Rate Card Name *</strong></label>
+                            <input type="text" name="name" class="form-control" required>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label"><strong>Customer *</strong></label>
+                            <select name="customer" class="form-select" required>
+                                <option value="">Select Customer</option>
+                                {% for customer in customers %}
+                                <option value="{{ customer.id }}">{{ customer.name }} ({{ customer.code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea name="description" class="form-control" rows="3" placeholder="Optional description of the rate card..."></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label"><strong>Rate per Unit *</strong></label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" name="rate_per_unit" class="form-control" step="0.0001" min="0.0001" required>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label"><strong>Unit Type *</strong></label>
+                            <select name="unit_type" class="form-select" required>
+                                <option value="hour">Hour</option>
+                                <option value="day">Day</option>
+                                <option value="month">Month</option>
+                                <option value="project">Project</option>
+                                <option value="item">Item</option>
+                                <option value="user">User</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label"><strong>Valid From *</strong></label>
+                            <input type="date" name="valid_from" class="form-control" required>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label"><strong>Valid Until *</strong></label>
+                            <input type="date" name="valid_until" class="form-control" required>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'rate_cards:list' %}" class="btn btn-secondary">
+                            <i class="material-symbols-outlined me-1">arrow_back</i>
+                            Back to List
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="material-symbols-outlined me-1">save</i>
+                            Create Rate Card
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title">Rate Card Guidelines</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>Unit Types:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li><strong>Hour:</strong> Hourly billing rate</li>
+                        <li><strong>Day:</strong> Daily billing rate</li>
+                        <li><strong>Month:</strong> Monthly subscription</li>
+                        <li><strong>Project:</strong> Per project rate</li>
+                        <li><strong>Item:</strong> Per item/transaction</li>
+                        <li><strong>User:</strong> Per user rate</li>
+                    </ul>
+                </div>
+                
+                <div class="alert alert-warning">
+                    <strong>Note:</strong> Rate cards can be used to automatically calculate billing amounts based on usage.
+                </div>
+                
+                <div class="alert alert-success">
+                    <strong>Best Practice:</strong> Set clear validity periods and update rate cards annually.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

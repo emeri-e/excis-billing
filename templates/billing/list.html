@@ -1,0 +1,355 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Billing Runs - Excis Billing System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-xl-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="card-title">Billing Run Management</h4>
+                        <p class="mb-0 text-muted">Track and manage billing operations</p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'billing:create' %}" class="btn btn-outline-primary">
+                            <i class="material-symbols-outlined me-1">receipt_long</i>
+                            Quick Create
+                        </a>
+                        <a href="{% url 'billing:create_wizard' %}" class="btn btn-primary">
+                            <i class="material-symbols-outlined me-1">auto_fix_high</i>
+                            Create with Wizard
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Filters -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <form method="get">
+                                <select name="status" class="form-select" onchange="this.form.submit()">
+                                    <option value="">All Statuses</option>
+                                    {% for value, label in status_choices %}
+                                    <option value="{{ value }}" {% if value == status_filter %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </form>
+                        </div>
+                        <div class="col-md-3">
+                            <form method="get">
+                                <select name="customer" class="form-select" onchange="this.form.submit()">
+                                    <option value="">All Customers</option>
+                                    {% for customer in customers %}
+                                    <option value="{{ customer.id }}" {% if customer.id|stringformat:"s" == customer_filter %}selected{% endif %}>{{ customer.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </form>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <span class="text-muted">{{ billing_runs.paginator.count }} billing runs found</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Billing Runs Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Run ID</th>
+                                    <th>Customer / Account</th>
+                                    <th>Purchase Order</th>
+                                    <th>Amount</th>
+                                    <th>Billing Period</th>
+                                    <th>Status</th>
+                                    <th>Type</th>
+                                    <th>Processed By</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for billing in billing_runs %}
+                                <tr>
+                                    <td>
+                                        <strong class="text-primary">{{ billing.run_id }}</strong>
+                                        {% if billing.notes %}
+                                        <br><small class="text-muted">{{ billing.notes|truncatechars:30 }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <strong>{{ billing.customer.name }}</strong>
+                                            <br><small class="text-muted">{{ billing.customer.code }}</small>
+                                            {% if billing.account %}
+                                            <br><span class="badge bg-light text-dark">{{ billing.account.account_id }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'purchase_orders:detail' billing.purchase_order.id %}" class="text-decoration-none">
+                                            {{ billing.purchase_order.po_number }}
+                                        </a>
+                                        <br><small class="text-muted">Balance: ${{ billing.purchase_order.remaining_balance|floatformat:2 }}</small>
+                                    </td>
+                                    <td>
+                                        <strong>${{ billing.amount|floatformat:2 }}</strong>
+                                        {% if billing.tickets_count > 0 %}
+                                        <br><small class="text-muted">{{ billing.tickets_count }} tickets</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ billing.billing_period }}
+                                        {% if billing.period_days > 1 %}
+                                        <br><small class="text-muted">{{ billing.period_days }} days</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if billing.status == 'completed' %}bg-success
+                                            {% elif billing.status == 'processing' %}bg-info
+                                            {% elif billing.status == 'pending' %}bg-warning text-dark
+                                            {% elif billing.status == 'draft' %}bg-secondary
+                                            {% else %}bg-danger{% endif %}">
+                                            {{ billing.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if billing.billing_type == 'wizard' %}bg-primary
+                                            {% elif billing.billing_type == 'automated' %}bg-info
+                                            {% else %}bg-light text-dark{% endif %}">
+                                            {{ billing.get_billing_type_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small>{{ billing.processed_by.get_full_name|default:billing.processed_by.username }}</small>
+                                        <br><small class="text-muted">{{ billing.created_at|date:"M d" }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                                <i class="material-symbols-outlined">more_vert</i>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item view-details" href="#" data-billing-id="{{ billing.id }}">
+                                                    <i class="material-symbols-outlined me-2">visibility</i>View Details
+                                                </a></li>
+                                                
+                                                {% if billing.can_be_processed %}
+                                                <li><a class="dropdown-item text-success process-run" href="#" data-billing-id="{{ billing.id }}">
+                                                    <i class="material-symbols-outlined me-2">play_arrow</i>Process Run
+                                                </a></li>
+                                                {% endif %}
+                                                
+                                                {% if billing.output_file %}
+                                                <li><a class="dropdown-item" href="{{ billing.output_file.url }}" target="_blank">
+                                                    <i class="material-symbols-outlined me-2">download</i>Download Output
+                                                </a></li>
+                                                {% endif %}
+                                                
+                                                {% if billing.tickets_file %}
+                                                <li><a class="dropdown-item" href="{{ billing.tickets_file.url }}" target="_blank">
+                                                    <i class="material-symbols-outlined me-2">file_present</i>View Tickets
+                                                </a></li>
+                                                {% endif %}
+                                                
+                                                <li><hr class="dropdown-divider"></li>
+                                                
+                                                {% if billing.can_be_cancelled %}
+                                                <li><a class="dropdown-item text-danger cancel-run" href="#" data-billing-id="{{ billing.id }}">
+                                                    <i class="material-symbols-outlined me-2">cancel</i>Cancel Run
+                                                </a></li>
+                                                {% endif %}
+                                            </ul>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center py-5">
+                                        <div class="text-muted">
+                                            <i class="material-symbols-outlined fs-1 opacity-50">receipt_long</i>
+                                            <p class="mt-3 mb-3">No billing runs found</p>
+                                            <div class="d-flex gap-2 justify-content-center">
+                                                <a href="{% url 'billing:create' %}" class="btn btn-outline-primary">Quick Create</a>
+                                                <a href="{% url 'billing:create_wizard' %}" class="btn btn-primary">Use Wizard</a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    {% if billing_runs.has_other_pages %}
+                    <nav class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if billing_runs.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ billing_runs.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if customer_filter %}&customer={{ customer_filter }}{% endif %}">
+                                    <i class="material-symbols-outlined">chevron_left</i>
+                                </a>
+                            </li>
+                            {% endif %}
+                            
+                            <li class="page-item active">
+                                <span class="page-link">{{ billing_runs.number }} of {{ billing_runs.paginator.num_pages }}</span>
+                            </li>
+                            
+                            {% if billing_runs.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ billing_runs.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if customer_filter %}&customer={{ customer_filter }}{% endif %}">
+                                    <i class="material-symbols-outlined">chevron_right</i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Billing Run Details Modal -->
+<div class="modal fade" id="billingRunModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Billing Run Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="billingRunDetails">
+                <!-- Details will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Add event listeners when the DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // View details
+    document.querySelectorAll('.view-details').forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            var billingId = this.getAttribute('data-billing-id');
+            viewBillingRunDetails(billingId);
+        });
+    });
+    
+    // Process run
+    document.querySelectorAll('.process-run').forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            var billingId = this.getAttribute('data-billing-id');
+            processBillingRun(billingId);
+        });
+    });
+    
+    // Cancel run
+    document.querySelectorAll('.cancel-run').forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            var billingId = this.getAttribute('data-billing-id');
+            cancelBillingRun(billingId);
+        });
+    });
+});
+
+function viewBillingRunDetails(billingRunId) {
+    // Load billing run details via AJAX
+    fetch(`/billing/api/${billingRunId}/details/`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('billingRunDetails').innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Basic Information</h6>
+                        <table class="table table-sm">
+                            <tr><td>Run ID:</td><td><strong>${data.run_id}</strong></td></tr>
+                            <tr><td>Customer:</td><td>${data.customer_name}</td></tr>
+                            <tr><td>Account:</td><td>${data.account_name || 'N/A'}</td></tr>
+                            <tr><td>Amount:</td><td>$${data.amount}</td></tr>
+                            <tr><td>Status:</td><td><span class="badge bg-primary">${data.status}</span></td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Processing Details</h6>
+                        <table class="table table-sm">
+                            <tr><td>Type:</td><td>${data.billing_type}</td></tr>
+                            <tr><td>Period:</td><td>${data.billing_period}</td></tr>
+                            <tr><td>Tickets:</td><td>${data.tickets_count}</td></tr>
+                            <tr><td>Processed By:</td><td>${data.processed_by}</td></tr>
+                            <tr><td>Created:</td><td>${data.created_at}</td></tr>
+                        </table>
+                    </div>
+                </div>
+                ${data.notes ? `<div class="mt-3"><h6>Notes</h6><p>${data.notes}</p></div>` : ''}
+            `;
+            new bootstrap.Modal(document.getElementById('billingRunModal')).show();
+        })
+        .catch(error => {
+            console.error('Error loading details:', error);
+            alert('Error loading billing run details');
+        });
+}
+
+function processBillingRun(billingRunId) {
+    if (confirm('Are you sure you want to process this billing run?')) {
+        fetch(`/billing/api/${billingRunId}/process/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Billing run processed successfully!');
+                location.reload();
+            } else {
+                alert('Error processing billing run: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error processing billing run:', error);
+            alert('Error processing billing run');
+        });
+    }
+}
+
+function cancelBillingRun(billingRunId) {
+    if (confirm('Are you sure you want to cancel this billing run? This action cannot be undone.')) {
+        fetch(`/billing/api/${billingRunId}/cancel/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Billing run cancelled successfully!');
+                location.reload();
+            } else {
+                alert('Error cancelling billing run: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error cancelling billing run:', error);
+            alert('Error cancelling billing run');
+        });
+    }
+}
+</script>
+{% endblock %}

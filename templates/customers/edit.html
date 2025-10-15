@@ -1,0 +1,758 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Edit {{ customer.name }} - Excis Billing System{% endblock %}
+
+{% block page_title %}Edit Customer{% endblock %}
+
+{% block extra_css %}
+<style>
+.edit-customer {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.breadcrumb a {
+  color: #5335ff;
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.form-header {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: white;
+  border-radius: 16px 16px 0 0;
+  padding: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+
+.form-header::before {
+  content: '';
+  position: absolute;
+  top: -30px;
+  right: -30px;
+  width: 100px;
+  height: 100px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 50%;
+}
+
+.header-content {
+  position: relative;
+  z-index: 1;
+}
+
+.form-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.form-subtitle {
+  font-size: 16px;
+  opacity: 0.9;
+  margin: 0;
+}
+
+.customer-badge {
+  background: rgba(255,255,255,0.2);
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-container {
+  background: white;
+  border-radius: 0 0 16px 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.form-body {
+  padding: 40px;
+}
+
+.form-section {
+  margin-bottom: 32px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 20px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.section-icon {
+  width: 20px;
+  height: 20px;
+  color: #059669;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.required {
+  color: #ef4444;
+}
+
+.form-input {
+  padding: 12px 16px;
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.2s;
+  background: white;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+}
+
+.form-input.error {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.form-input:disabled {
+  background: #f3f4f6;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.form-textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.help-text {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+.error-text {
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.validation-summary {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.validation-title {
+  font-weight: 600;
+  color: #991b1b;
+  margin-bottom: 8px;
+}
+
+.validation-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.validation-item {
+  color: #991b1b;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.info-panel {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.info-title {
+  font-weight: 600;
+  color: #0369a1;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-content {
+  color: #0369a1;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #059669;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.form-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 40px;
+  background: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+}
+
+.action-group {
+  display: flex;
+  gap: 12px;
+}
+
+.btn {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.btn-primary {
+  background: #059669;
+  color: white;
+  border: 2px solid #059669;
+}
+
+.btn-primary:hover {
+  background: #047857;
+  border-color: #047857;
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+}
+
+.btn-secondary {
+  background: white;
+  color: #6b7280;
+  border: 2px solid #d1d5db;
+}
+
+.btn-secondary:hover {
+  background: #f9fafb;
+  color: #374151;
+  border-color: #9ca3af;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+  border: 2px solid #ef4444;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: white;
+  transform: translateY(-1px);
+}
+
+.changes-indicator {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  display: none;
+}
+
+.changes-text {
+  color: #856404;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.last-modified {
+  font-size: 12px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .action-group {
+    justify-content: center;
+  }
+  
+  .form-body {
+    padding: 24px;
+  }
+  
+  .form-actions {
+    padding: 16px 24px;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-header {
+    flex-direction: column;
+    text-align: center;
+    gap: 16px;
+  }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="edit-customer">
+  <!-- Breadcrumb -->
+  <div class="breadcrumb">
+    <a href="{% url 'customers:list' %}">Customers</a>
+    <span>›</span>
+    <a href="{% url 'customers:detail' customer.id %}">{{ customer.name }}</a>
+    <span>›</span>
+    <span>Edit</span>
+  </div>
+
+  <div class="form-container">
+    <!-- Form Header -->
+    <div class="form-header">
+      <div class="header-content">
+        <div class="form-title">Edit Customer</div>
+        <div class="form-subtitle">Update {{ customer.name }} information</div>
+      </div>
+      <div class="customer-badge">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M16 4c4.42 0 8 3.58 8 8s-3.58 8-8 8-8-3.58-8-8 3.58-8 8-8m0 10c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/>
+        </svg>
+        {{ customer.code }}
+      </div>
+    </div>
+
+    <!-- Form Body -->
+    <form method="post" id="customerForm">
+      {% csrf_token %}
+      
+      <!-- Display form errors if any -->
+      {% if form.errors %}
+      <div class="validation-summary">
+        <div class="validation-title">Please correct the following errors:</div>
+        <ul class="validation-list">
+          {% for field, errors in form.errors.items %}
+            {% for error in errors %}
+            <li class="validation-item">{{ field|title }}: {{ error }}</li>
+            {% endfor %}
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      <div class="form-body">
+        <!-- Customer Stats -->
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-value">{{ customer.get_account_count }}</div>
+            <div class="stat-label">Accounts</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">{{ customer.purchase_orders.count }}</div>
+            <div class="stat-label">Purchase Orders</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">{{ days_since_created }}</div>
+            <div class="stat-label">Days Active</div>
+          </div>
+        </div>
+
+        <!-- Info Panel -->
+        <div class="info-panel">
+          <div class="info-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg>
+            Important Notes
+          </div>
+          <div class="info-content">
+            Changing the customer code may affect existing integrations and reports. The customer name and contact information can be updated safely. Any changes will be logged for audit purposes.
+          </div>
+        </div>
+
+        <!-- Changes Indicator -->
+        <div class="changes-indicator" id="changesIndicator">
+          <div class="changes-text">You have unsaved changes</div>
+        </div>
+
+        <!-- Basic Information Section -->
+        <div class="form-section">
+          <h3 class="section-title">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 4c4.42 0 8 3.58 8 8s-3.58 8-8 8-8-3.58-8-8 3.58-8 8-8m0 10c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/>
+            </svg>
+            Basic Information
+          </h3>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="{{ form.name.id_for_label }}">
+                Customer Name <span class="required">*</span>
+              </label>
+              <input 
+                type="text" 
+                id="{{ form.name.id_for_label }}"
+                name="{{ form.name.name }}"
+                class="form-input {% if form.name.errors %}error{% endif %}"
+                value="{{ form.name.value|default:customer.name }}"
+                required
+                onchange="trackChanges()"
+              >
+              <div class="help-text">Full legal name of the customer organization</div>
+              {% if form.name.errors %}
+                <div class="error-text">{{ form.name.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="{{ form.code.id_for_label }}">
+                Customer Code <span class="required">*</span>
+              </label>
+              <input 
+                type="text" 
+                id="{{ form.code.id_for_label }}"
+                name="{{ form.code.name }}"
+                class="form-input {% if form.code.errors %}error{% endif %}"
+                value="{{ form.code.value|default:customer.code }}"
+                required
+                style="text-transform: uppercase;"
+                onchange="trackChanges()"
+              >
+              <div class="help-text">
+                <strong>Warning:</strong> Changing this may affect existing data
+              </div>
+              {% if form.code.errors %}
+                <div class="error-text">{{ form.code.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Contact Information Section -->
+        <div class="form-section">
+          <h3 class="section-title">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+            </svg>
+            Contact Information
+          </h3>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="{{ form.email.id_for_label }}">
+                Email Address <span class="required">*</span>
+              </label>
+              <input 
+                type="email" 
+                id="{{ form.email.id_for_label }}"
+                name="{{ form.email.name }}"
+                class="form-input {% if form.email.errors %}error{% endif %}"
+                value="{{ form.email.value|default:customer.email }}"
+                required
+                onchange="trackChanges()"
+              >
+              <div class="help-text">Primary contact email for billing communications</div>
+              {% if form.email.errors %}
+                <div class="error-text">{{ form.email.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="{{ form.phone.id_for_label }}">
+                Phone Number
+              </label>
+              <input 
+                type="tel" 
+                id="{{ form.phone.id_for_label }}"
+                name="{{ form.phone.name }}"
+                class="form-input {% if form.phone.errors %}error{% endif %}"
+                value="{{ form.phone.value|default:customer.phone }}"
+                onchange="trackChanges()"
+              >
+              <div class="help-text">Optional contact phone number</div>
+              {% if form.phone.errors %}
+                <div class="error-text">{{ form.phone.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="{{ form.address.id_for_label }}">
+              Address
+            </label>
+            <textarea 
+              id="{{ form.address.id_for_label }}"
+              name="{{ form.address.name }}"
+              class="form-input form-textarea {% if form.address.errors %}error{% endif %}"
+              onchange="trackChanges()"
+            >{{ form.address.value|default:customer.address }}</textarea>
+            <div class="help-text">Company headquarters or billing address</div>
+            {% if form.address.errors %}
+              <div class="error-text">{{ form.address.errors.0 }}</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Form Actions -->
+      <div class="form-actions">
+        <div class="last-modified">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
+            <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+          </svg>
+          Last updated {{ customer.created_at|timesince }} ago by {{ customer.created_by.get_full_name|default:customer.created_by.username }}
+        </div>
+        
+        <div class="action-group">
+          <a href="{% url 'customers:detail' customer.id %}" class="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.42-1.41L7.83 13H20v-2z"/>
+            </svg>
+            Cancel
+          </a>
+          <button type="submit" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+            Save Changes
+          </button>
+          <button type="button" class="btn btn-danger" onclick="confirmDelete()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            </svg>
+            Delete Customer
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let hasUnsavedChanges = false;
+const originalValues = {};
+
+// Store original form values
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.getElementById('customerForm');
+  const inputs = form.querySelectorAll('input, textarea, select');
+  
+  inputs.forEach(input => {
+    originalValues[input.name] = input.value;
+  });
+  
+  // Auto-uppercase customer code
+  const codeInput = document.getElementById('{{ form.code.id_for_label }}');
+  if (codeInput) {
+    codeInput.addEventListener('input', function() {
+      this.value = this.value.toUpperCase();
+    });
+  }
+});
+
+// Track changes to show unsaved changes indicator
+function trackChanges() {
+  const form = document.getElementById('customerForm');
+  const inputs = form.querySelectorAll('input, textarea, select');
+  const changesIndicator = document.getElementById('changesIndicator');
+  
+  hasUnsavedChanges = false;
+  
+  inputs.forEach(input => {
+    if (originalValues[input.name] !== input.value) {
+      hasUnsavedChanges = true;
+    }
+  });
+  
+  if (hasUnsavedChanges) {
+    changesIndicator.style.display = 'block';
+  } else {
+    changesIndicator.style.display = 'none';
+  }
+}
+
+// Warn before leaving with unsaved changes
+window.addEventListener('beforeunload', function(e) {
+  if (hasUnsavedChanges) {
+    e.preventDefault();
+    e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+    return e.returnValue;
+  }
+});
+
+// Form validation
+document.getElementById('customerForm').addEventListener('submit', function(e) {
+  const name = document.getElementById('{{ form.name.id_for_label }}').value.trim();
+  const code = document.getElementById('{{ form.code.id_for_label }}').value.trim();
+  const email = document.getElementById('{{ form.email.id_for_label }}').value.trim();
+  
+  if (!name || !code || !email) {
+    e.preventDefault();
+    alert('Please fill in all required fields (Customer Name, Code, and Email).');
+    return false;
+  }
+  
+  if (code.length < 2 || code.length > 10) {
+    e.preventDefault();
+    alert('Customer code must be between 2 and 10 characters.');
+    return false;
+  }
+  
+  // Simple email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    e.preventDefault();
+    alert('Please enter a valid email address.');
+    return false;
+  }
+  
+  // Clear unsaved changes flag
+  hasUnsavedChanges = false;
+});
+
+// Confirm delete action
+function confirmDelete() {
+  const customerName = '{{ customer.name|escapejs }}';
+  const accountCount = parseInt('{{ customer.get_account_count }}');
+  const poCount = parseInt('{{ customer.purchase_orders.count }}');
+  
+  let warningMessage = `Are you sure you want to delete "${customerName}"?`;
+  
+  if (accountCount > 0 || poCount > 0) {
+    warningMessage += `\n\nThis will also delete:`;
+    if (accountCount > 0) {
+      warningMessage += `\n• ${accountCount} account${accountCount === 1 ? '' : 's'}`;
+    }
+    if (poCount > 0) {
+      warningMessage += `\n• ${poCount} purchase order${poCount === 1 ? '' : 's'}`;
+    }
+    warningMessage += `\n\nThis action cannot be undone.`;
+  }
+  
+  if (confirm(warningMessage)) {
+    // Create a form to submit DELETE request
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{% url "customers:delete" customer.id %}';
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = csrfToken;
+    form.appendChild(csrfInput);
+    
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+
+// Add event listeners for change tracking
+document.addEventListener('DOMContentLoaded', function() {
+  const inputs = document.querySelectorAll('#customerForm input, #customerForm textarea, #customerForm select');
+  inputs.forEach(input => {
+    input.addEventListener('input', trackChanges);
+    input.addEventListener('change', trackChanges);
+  });
+});
+</script>
+{% endblock %}

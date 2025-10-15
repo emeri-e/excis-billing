@@ -1,0 +1,138 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Create Billing Run - Excis Billing System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Create Billing Run</h4>
+                    <div class="ms-auto">
+                        <a href="{% url 'billing:create_wizard' %}" class="btn btn-primary">
+                            <i class="material-symbols-outlined me-2">auto_fix_high</i>
+                            Use Wizard
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Customer <span class="text-danger">*</span></label>
+                                    <select name="customer" class="form-select" required onchange="loadAccountsAndPOs(this.value)">
+                                        <option value="">Select Customer</option>
+                                        {% for customer in customers %}
+                                        <option value="{{ customer.id }}">{{ customer.name }} ({{ customer.code }})</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Account</label>
+                                    <select name="account" class="form-select" id="accountSelect">
+                                        <option value="">Select Customer First</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Purchase Order <span class="text-danger">*</span></label>
+                                    <select name="purchase_order" class="form-select" required id="poSelect">
+                                        <option value="">Select Customer First</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Amount <span class="text-danger">*</span></label>
+                                    <input type="number" name="amount" class="form-control" step="0.01" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Billing Date <span class="text-danger">*</span></label>
+                                    <input type="date" name="billing_date" class="form-control" value="{{ today }}" required>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Notes</label>
+                                    <textarea name="notes" class="form-control" rows="3"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-lg-12">
+                                <div class="d-flex justify-content-end gap-2">
+                                    <a href="{% url 'billing:list' %}" class="btn btn-secondary">Cancel</a>
+                                    <button type="submit" class="btn btn-primary">Create Billing Run</button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function loadAccountsAndPOs(customerId) {
+    if (!customerId) {
+        document.getElementById('accountSelect').innerHTML = '<option value="">Select Customer First</option>';
+        document.getElementById('poSelect').innerHTML = '<option value="">Select Customer First</option>';
+        return;
+    }
+    
+    // Load accounts
+    fetch(`/customers/accounts/api/${customerId}/`)
+        .then(response => response.json())
+        .then(data => {
+            const accountSelect = document.getElementById('accountSelect');
+            accountSelect.innerHTML = '<option value="">No specific account</option>';
+            
+            if (data.accounts && data.accounts.length > 0) {
+                data.accounts.forEach(account => {
+                    accountSelect.innerHTML += `<option value="${account.id}">${account.account_id} - ${account.name}</option>`;
+                });
+            }
+        })
+        .catch(error => console.error('Error loading accounts:', error));
+    
+    // Load purchase orders
+    fetch(`/customers/purchase-orders/api/${customerId}/`)
+        .then(response => response.json())
+        .then(data => {
+            const poSelect = document.getElementById('poSelect');
+            poSelect.innerHTML = '<option value="">Select Purchase Order</option>';
+            
+            if (data.purchase_orders && data.purchase_orders.length > 0) {
+                data.purchase_orders.forEach(po => {
+                    poSelect.innerHTML += `<option value="${po.id}">${po.po_number} - $${po.remaining_balance}</option>`;
+                });
+            } else {
+                poSelect.innerHTML = '<option value="">No Purchase Orders Available</option>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading purchase orders:', error);
+            document.getElementById('poSelect').innerHTML = '<option value="">Error Loading Purchase Orders</option>';
+        });
+}
+</script>
+{% endblock %}

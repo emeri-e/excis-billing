@@ -1,0 +1,498 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Add New Account{% endblock %}
+{% block page_title %}Add New Account{% endblock %}
+
+{% block extra_css %}
+<style>
+.create-account { max-width: 1000px; margin: 0 auto; }
+.form-header {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: white; border-radius: 16px 16px 0 0; padding: 32px;
+  text-align: center;
+}
+.form-container {
+  background: white; border-radius: 0 0 16px 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+.form-body { padding: 40px; }
+.form-section { margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb; }
+.section-title {
+  font-size: 18px; font-weight: 600; color: #1f2937;
+  margin-bottom: 20px; display: flex; align-items: center; gap: 12px;
+}
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+.form-group { display: flex; flex-direction: column; }
+.form-label {
+  font-size: 14px; font-weight: 600; color: #374151;
+  margin-bottom: 8px;
+}
+.required { color: #ef4444; }
+.form-input, .form-select {
+  padding: 12px 16px; border: 2px solid #d1d5db; border-radius: 8px;
+  font-size: 14px; transition: all 0.2s; background: white;
+}
+.form-input:focus, .form-select:focus {
+  outline: none; border-color: #5335ff;
+  box-shadow: 0 0 0 3px rgba(83, 53, 255, 0.1);
+}
+.help-text { font-size: 12px; color: #6b7280; margin-top: 6px; }
+.form-actions {
+  display: flex; gap: 16px; justify-content: flex-end;
+  padding: 24px 40px; background: #f9fafb; border-top: 1px solid #e5e7eb;
+}
+.btn {
+  padding: 12px 24px; border-radius: 8px; font-weight: 600;
+  text-decoration: none; transition: all 0.2s; border: none;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-primary {
+  background: #5335ff; color: white; border: 2px solid #5335ff;
+}
+.btn-primary:hover {
+  background: #4338ca; transform: translateY(-1px);
+}
+.btn-secondary {
+  background: white; color: #6b7280; border: 2px solid #d1d5db;
+}
+
+/* Toggle Section Styles */
+.toggle-section {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.toggle-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  color: #1f2937;
+  cursor: pointer;
+  padding: 16px;
+  transition: background-color 0.2s;
+}
+.toggle-header:hover {
+  background: #f1f5f9;
+}
+.toggle-content {
+  padding: 0 16px 16px 16px;
+  display: none;
+  border-top: 1px solid #e2e8f0;
+}
+.toggle-content.active {
+  display: block;
+}
+.new-entry-badge {
+  background: #10b981;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Error styles */
+.error-message {
+  color: #ef4444;
+  font-size: 12px;
+  margin-top: 4px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="create-account">
+  <div class="form-container">
+    <div class="form-header">
+      <h1>Add New Account</h1>
+      <p>Create a new account with flexible currency and location options</p>
+    </div>
+
+    <form method="post" id="accountForm">
+      {% csrf_token %}
+      
+      {% if form.errors %}
+      <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 20px 40px;">
+        <div style="font-weight: 600; color: #991b1b; margin-bottom: 8px;">Please correct the following errors:</div>
+        <ul style="list-style: none; padding: 0; margin: 0;">
+          {% for field, errors in form.errors.items %}
+            {% for error in errors %}
+            <li style="color: #991b1b; font-size: 14px; margin-bottom: 4px;">{{ field|title }}: {{ error }}</li>
+            {% endfor %}
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      <div class="form-body">
+        <!-- Basic Information -->
+        <div class="form-section">
+          <h3 class="section-title">Basic Information</h3>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="id_customer">
+                Customer <span class="required">*</span>
+              </label>
+              {{ form.customer }}
+              {% if form.customer.errors %}
+                <div class="error-message">{{ form.customer.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="id_name">
+                Account Name <span class="required">*</span>
+              </label>
+              {{ form.name }}
+              {% if form.name.errors %}
+                <div class="error-message">{{ form.name.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="id_account_id">
+                Account ID <span class="required">*</span>
+              </label>
+              {{ form.account_id }}
+              <div class="help-text">Unique identifier for this account</div>
+              {% if form.account_id.errors %}
+                <div class="error-message">{{ form.account_id.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Location Information -->
+        <div class="form-section">
+          <h3 class="section-title">Location</h3>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="id_region">
+                Region <span class="required">*</span>
+              </label>
+              {{ form.region }}
+              <div class="help-text">Enter region name (e.g., East Africa, EMEA)</div>
+              {% if form.region.errors %}
+                <div class="error-message">{{ form.region.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="id_country">
+                Country
+              </label>
+              {{ form.country }}
+              <div class="help-text">Select existing or add new below</div>
+              {% if form.country.errors %}
+                <div class="error-message">{{ form.country.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Add New Country -->
+          <div class="toggle-section">
+            <div class="toggle-header" onclick="toggleNewCountry(event)">
+              <span>➕ Add New Country</span>
+              <span class="new-entry-badge">OPTIONAL</span>
+            </div>
+            <div class="toggle-content" id="newCountrySection">
+              <div class="form-row" style="margin-top: 16px; margin-bottom: 0;">
+                <div class="form-group">
+                  <label class="form-label" for="id_new_country_name">
+                    Country Name
+                  </label>
+                  {{ form.new_country_name }}
+                  {% if form.new_country_name.errors %}
+                    <div class="error-message">{{ form.new_country_name.errors.0 }}</div>
+                  {% endif %}
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="id_new_country_code">
+                    Country Code
+                  </label>
+                  {{ form.new_country_code }}
+                  <div class="help-text">3-letter ISO code (e.g., KEN, USA)</div>
+                  {% if form.new_country_code.errors %}
+                    <div class="error-message">{{ form.new_country_code.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Billing Configuration -->
+        <div class="form-section">
+          <h3 class="section-title">Billing Configuration</h3>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="id_billing_cycle">
+                Billing Cycle <span class="required">*</span>
+              </label>
+              {{ form.billing_cycle }}
+              <div class="help-text">When billing runs should be processed</div>
+              {% if form.billing_cycle.errors %}
+                <div class="error-message">{{ form.billing_cycle.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="id_currency">
+                Currency
+              </label>
+              {{ form.currency }}
+              <div class="help-text">Select existing or add new below</div>
+              {% if form.currency.errors %}
+                <div class="error-message">{{ form.currency.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Add New Currency -->
+          <div class="toggle-section">
+            <div class="toggle-header" onclick="toggleNewCurrency(event)">
+              <span>➕ Add New Currency</span>
+              <span class="new-entry-badge">OPTIONAL</span>
+            </div>
+            <div class="toggle-content" id="newCurrencySection">
+              <div class="form-row" style="margin-top: 16px;">
+                <div class="form-group">
+                  <label class="form-label" for="id_new_currency_code">
+                    Currency Code <span class="required">*</span>
+                  </label>
+                  {{ form.new_currency_code }}
+                  <div class="help-text">3-letter code (e.g., KES, USD)</div>
+                  {% if form.new_currency_code.errors %}
+                    <div class="error-message">{{ form.new_currency_code.errors.0 }}</div>
+                  {% endif %}
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="id_new_currency_name">
+                    Currency Name <span class="required">*</span>
+                  </label>
+                  {{ form.new_currency_name }}
+                  {% if form.new_currency_name.errors %}
+                    <div class="error-message">{{ form.new_currency_name.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="id_new_currency_symbol">
+                  Currency Symbol
+                </label>
+                {{ form.new_currency_symbol }}
+                <div class="help-text">e.g., $, €, KSh</div>
+                {% if form.new_currency_symbol.errors %}
+                  <div class="error-message">{{ form.new_currency_symbol.errors.0 }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contact Information -->
+        <div class="form-section">
+          <h3 class="section-title">Contact Information</h3>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="id_contact_email">Contact Email</label>
+              {{ form.contact_email }}
+              {% if form.contact_email.errors %}
+                <div class="error-message">{{ form.contact_email.errors.0 }}</div>
+              {% endif %}
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="id_contact_phone">Contact Phone</label>
+              {{ form.contact_phone }}
+              {% if form.contact_phone.errors %}
+                <div class="error-message">{{ form.contact_phone.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="id_notes">Notes</label>
+            {{ form.notes }}
+            {% if form.notes.errors %}
+              <div class="error-message">{{ form.notes.errors.0 }}</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <a href="{% url 'customers:accounts_list' %}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">Create Account</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleNewCurrency(event) {
+  if (event) {
+    event.stopPropagation();
+  }
+  const section = document.getElementById('newCurrencySection');
+  section.classList.toggle('active');
+}
+
+function toggleNewCountry(event) {
+  if (event) {
+    event.stopPropagation();
+  }
+  const section = document.getElementById('newCountrySection');
+  section.classList.toggle('active');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Prevent input clicks from toggling sections
+  const currencyInputs = document.querySelectorAll('#newCurrencySection input');
+  currencyInputs.forEach(input => {
+    input.addEventListener('click', function(e) {
+      e.stopPropagation();
+    });
+  });
+  
+  const countryInputs = document.querySelectorAll('#newCountrySection input');
+  countryInputs.forEach(input => {
+    input.addEventListener('click', function(e) {
+      e.stopPropagation();
+    });
+  });
+
+  // Customer and project dropdown functionality
+  const customerSelect = document.getElementById('id_customer');
+  const projectSelect = document.getElementById('id_project');
+  
+  // Ensure elements exist
+  if (!customerSelect || !projectSelect) {
+    console.error('Required elements missing:', {
+      customerSelect: !!customerSelect,
+      projectSelect: !!projectSelect
+    });
+    return;
+  }
+  
+  // Store initial project selection (if any) to preserve state
+  let selectedProjectId = projectSelect.value || '';
+  
+  // Function to update project dropdown
+  function updateProjects(customerId) {
+    console.log('Updating projects for customer:', customerId);
+    
+    // Only reset if customer ID is empty and no project is selected
+    if (!customerId && !selectedProjectId) {
+      console.log('No customer ID provided, resetting project dropdown');
+      projectSelect.innerHTML = '<option value="">Select customer first...</option>';
+      projectSelect.disabled = true;
+      return;
+    }
+    
+    // Skip AJAX if customer ID hasn't changed and projects are already loaded
+    if (customerId && projectSelect.options.length > 1 && customerSelect.dataset.lastCustomerId === customerId) {
+      console.log('Projects already loaded for customer:', customerId);
+      projectSelect.disabled = false;
+      return;
+    }
+    
+    projectSelect.innerHTML = '<option value="">Loading projects...</option>';
+    projectSelect.disabled = true;
+    
+    if (customerId) {
+      const url = `{% url 'customers:ajax_load_projects' %}?customer_id=${customerId}`;
+      console.log('Fetching projects from:', url);
+      
+      fetch(url, {
+        method: 'GET',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      })
+        .then(response => {
+          console.log('Response status:', response.status);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('Received projects:', data.projects);
+          projectSelect.innerHTML = '<option value="">Select a project...</option>';
+          
+          if (data.projects && Array.isArray(data.projects) && data.projects.length > 0) {
+            data.projects.forEach(project => {
+              console.log('Adding project option:', project);
+              const option = document.createElement('option');
+              option.value = project.id;
+              option.textContent = `${project.name} (${project.code})`;
+              if (project.id == selectedProjectId) {
+                option.selected = true;
+              }
+              projectSelect.appendChild(option);
+            });
+            projectSelect.disabled = false;
+            customerSelect.dataset.lastCustomerId = customerId; // Store last customer ID
+            console.log('Project dropdown updated with', data.projects.length, 'options');
+          } else {
+            console.log('No projects found for customer');
+            projectSelect.innerHTML = '<option value="">No projects available</option>';
+            projectSelect.disabled = true;
+          }
+          
+          // Trigger change event to ensure form validation
+          projectSelect.dispatchEvent(new Event('change'));
+        })
+        .catch(error => {
+          console.error('Error loading projects:', error);
+          projectSelect.innerHTML = '<option value="">Error loading projects</option>';
+          projectSelect.disabled = true;
+        });
+    }
+  }
+  
+  // Attach change event listener
+  customerSelect.addEventListener('change', function() {
+    console.log('Customer change event triggered with value:', this.value, 'options:', this.options[this.selectedIndex].text);
+    updateProjects(this.value);
+  });
+  
+  // Preserve project selection on change
+  projectSelect.addEventListener('change', function() {
+    selectedProjectId = this.value;
+    console.log('Selected project ID:', selectedProjectId);
+  });
+  
+  // Auto-uppercase codes
+  const codeInputs = ['id_account_id', 'id_new_currency_code', 'id_new_country_code'];
+  codeInputs.forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.addEventListener('input', function() {
+        this.value = this.value.toUpperCase();
+      });
+    }
+  });
+  
+  // Trigger initial load if customer is pre-selected
+  if (customerSelect.value) {
+    console.log('Triggering initial project load for pre-selected customer:', customerSelect.value);
+    updateProjects(customerSelect.value);
+  }
+
+});
+</script>
+{% endblock %}

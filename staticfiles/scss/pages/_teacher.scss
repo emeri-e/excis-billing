@@ -1,0 +1,137 @@
+.contact_list{
+	@include transitionSlow;
+	.dropdown{
+		position: absolute;
+		top: 20px;
+		right: 20px;			
+	}
+	
+	&:hover{
+		box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+	}
+	.btn-check:focus + .btn, .btn:focus {
+		outline: 0;
+		
+	}
+	
+}
+
+
+/* Teacher Detail */
+
+.user-bg{
+	height:140px;
+    background-color: var(--primary);
+	border-radius:$radius $radius 0 0;
+	position:relative;
+	
+	.user-svg,
+	.user-svg-1{
+		position:absolute;
+		bottom:0;
+		right:40px;
+		z-index:1;
+		
+		@include respond ('phone'){
+			right:27px;
+		}
+
+		@include respond('tab-port'){
+			svg{
+				width:9.375rem;
+				height:6.25rem;
+				
+				@include respond ('phone'){
+					width:7.738rem;
+					height:4.813rem;
+				}
+				
+			}
+			
+
+		}
+	}
+
+	.user-svg-1{
+		right:144px;
+		z-index:0;
+		
+		@include respond ('phone'){
+			right:68px;
+		}
+	}
+	
+}
+.user{
+	margin-top: -100px;
+	@include respond ('phone'){
+		margin-top:-72px;
+	}
+	.user-media{
+		margin-bottom: 20px;
+		
+		@include respond ('phone'){
+			margin-bottom:10px;
+		}
+		.avatar{
+			border:8px solid $white;
+			
+			@include respond ('phone'){
+				border-width:5px;
+				
+			}
+		}
+	}
+}
+
+.user-content{
+	.user-img{
+		margin-bottom:1.5rem;
+	}
+	.user-details{
+		//margin-bottom:1.875rem;
+	}
+	.sharp{
+		@include respond ('tab-land'){
+			width:2.4rem;
+			height:2.4rem;
+		}
+	}
+}
+
+.teacher-deatails{
+	//margin-top:2.188rem;
+	p{
+		width:60%;
+		
+		@include respond ('laptop'){
+			width:100%;
+		}
+	}
+	.dots{
+		position:relative;
+		padding-left:0.938rem;
+		margin-bottom:1.563rem;
+			
+		&:after{
+			content:"";
+			position:absolute;
+			background-color:var(--primary);
+			width:5px;
+			height:5px;
+			border-radius:100%;
+			top:0.5rem;
+			left:0;
+		}
+	}
+}
+.contact-icon{
+	margin-bottom:30px;
+}
+.contact_list{
+	.card-body{
+		@include respond ('tab-land'){
+			padding:20px;
+		}
+	}
+}

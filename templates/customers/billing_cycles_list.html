@@ -1,0 +1,59 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Billing Cycles - Excis Billing System{% endblock %}
+{% block page_title %}Billing Cycles{% endblock %}
+
+{% block content %}
+<div style="max-width: 1200px; margin: 0 auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <div>
+            <h2 style="margin: 0 0 8px 0;">Billing Cycles</h2>
+            <p style="margin: 0; color: #64748b;">Manage billing cycle configurations</p>
+        </div>
+        <a href="{% url 'customers:create_billing_cycle' %}" class="btn btn-primary">
+            + Add Billing Cycle
+        </a>
+    </div>
+
+    <div style="background: white; border-radius: 8px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        {% if billing_cycles %}
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 2px solid #e5e7eb;">
+                    <th style="padding: 12px; text-align: left; font-size: 12px; color: #64748b; text-transform: uppercase;">Name</th>
+                    <th style="padding: 12px; text-align: left; font-size: 12px; color: #64748b; text-transform: uppercase;">Type</th>
+                    <th style="padding: 12px; text-align: left; font-size: 12px; color: #64748b; text-transform: uppercase;">Customer</th>
+                    <th style="padding: 12px; text-align: left; font-size: 12px; color: #64748b; text-transform: uppercase;">Account</th>
+                    <th style="padding: 12px; text-align: left; font-size: 12px; color: #64748b; text-transform: uppercase;">Project</th>
+                    <th style="padding: 12px; text-align: left; font-size: 12px; color: #64748b; text-transform: uppercase;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cycle in billing_cycles %}
+                <tr style="border-bottom: 1px solid #f0f0f0;">
+                    <td style="padding: 16px;">{{ cycle.name }}</td>
+                    <td style="padding: 16px;">{{ cycle.get_cycle_type_display }}</td>
+                    <td style="padding: 16px;">{{ cycle.customer.name|default:"—" }}</td>
+                    <td style="padding: 16px;">{{ cycle.account.name|default:"—" }}</td>
+                    <td style="padding: 16px;">{{ cycle.project.name|default:"—" }}</td>
+                    <td style="padding: 16px;">
+                        {% if cycle.is_active %}
+                        <span style="background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Active</span>
+                        {% else %}
+                        <span style="background: #f3f4f6; color: #6b7280; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Inactive</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="text-align: center; padding: 40px; color: #64748b;">
+            <p>No billing cycles found.</p>
+            <a href="{% url 'customers:create_billing_cycle' %}" class="btn btn-primary">Create First Billing Cycle</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

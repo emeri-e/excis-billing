@@ -1,0 +1,431 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Create Billing Run - Excis Billing System{% endblock %}
+
+{% block extra_css %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#ffffff;
+    --panel:#ffffff;
+    --panel-2:#f9f9f9;
+    --muted:#555;
+    --text:#111;
+    --line:#ddd;
+    --brand:#5335ff;
+    --brand-2:#c3b8fe;
+    --radius:10px;
+    --shadow:0 2px 6px rgba(0,0,0,.08);
+  }
+
+  .billing-wizard-container {
+    font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+    color:var(--text);
+  }
+
+  .topbar{
+    display:flex; align-items:center; gap:14px;
+    padding:16px 20px;
+    border-bottom:1px solid var(--line);
+    background:#fff;
+    position:sticky; top:0; z-index:100;
+  }
+  .title{font-weight:700; font-size:20px}
+  .subtitle{color:var(--muted); font-size:13px}
+  .spacer{flex:1}
+  .btn{
+    display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 14px;
+    border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--text);
+    cursor:pointer; transition:.2s;
+  }
+  .btn.primary{background:var(--brand); border:none; color:#fff}
+  .btn:hover{box-shadow:var(--shadow)}
+
+  .wrap{padding:20px}
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow);
+  }
+
+  .stepper{
+    display:flex; gap:10px; flex-wrap:wrap;
+    padding:10px; margin-bottom:14px; background:var(--panel-2);
+    border:1px solid var(--line); border-radius:var(--radius);
+  }
+  .step{
+    display:flex; align-items:center; gap:8px; padding:8px 12px;
+    border:1px solid var(--line); border-radius:8px; background:#fff; cursor:pointer;
+  }
+  .step.active{border-color:var(--brand); background:#f0f0ff}
+  .badge{
+    width:24px; height:24px; border-radius:6px; display:grid; place-items:center;
+    background:#f5f5f5; color:var(--text); font-weight:600; font-size:13px;
+  }
+  .step.active .badge{background:var(--brand); color:#fff}
+  .label{font-weight:600; font-size:13px}
+
+  .grid{display:grid; grid-template-columns:1.5fr .8fr; gap:16px}
+  @media (max-width:900px){.grid{grid-template-columns:1fr}}
+
+  .panel{padding:18px}
+  .panel h3{margin:0 0 6px; font-size:18px}
+  .panel .hint{color:var(--muted); font-size:13px; margin-bottom:16px}
+
+  .field{margin-bottom:14px}
+  .field-label{font-size:13px; color:var(--muted); margin-bottom:6px}
+  select,.input{
+    width:100%; height:38px; padding:0 10px; color:var(--text);
+    background:#fff; border:1px solid var(--line); border-radius:6px;
+  }
+
+  .list{border:1px solid var(--line); border-radius:6px; overflow:hidden}
+  .row{
+    display:grid; grid-template-columns:auto 1fr auto auto; gap:10px; align-items:center;
+    padding:10px 12px; border-top:1px solid var(--line); background:#fff;
+  }
+  .row:first-child{border-top:none}
+  .radio{accent-color:var(--brand)}
+  .acct-title{font-weight:600}
+  .acct-sub{color:var(--muted); font-size:12px}
+  .pill{
+    font-size:12px; padding:4px 8px; border-radius:20px; background:#f5f5f5; border:1px solid var(--line);
+  }
+  .currency{font-size:12px; color:var(--muted)}
+
+  .summary{padding:18px}
+  .summary h4{margin:0 0 12px}
+  .kv{display:grid; grid-template-columns:120px 1fr; gap:8px; padding:8px 0; border-bottom:1px dashed #ddd; font-size:14px}
+  .kv:last-child{border-bottom:none}
+  .muted{color:var(--muted)}
+  .placeholder{
+    display:grid; place-items:center; min-height:100px; border:1px dashed #ccc; border-radius:6px; color:var(--muted); font-size:13px; background:#fafafa;
+  }
+
+  .footer{display:flex; gap:10px; justify-content:flex-end; margin-top:16px}
+  .hide{display:none !important}
+
+  .date-range-grid {
+    display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;
+  }
+  
+  .period-options {
+    display:grid; gap:8px; margin-bottom:16px;
+  }
+  
+  .period-option {
+    display:flex; align-items:center; gap:8px; padding:10px; border:1px solid var(--line); border-radius:6px; cursor:pointer;
+  }
+  
+  .period-option:hover {
+    background:#f8f9fa;
+  }
+  
+  .period-option.selected {
+    border-color:var(--brand); background:#f0f0ff;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="billing-wizard-container">
+  <div class="topbar">
+    <div>
+      <div class="title">Create Billing Run</div>
+      <div class="subtitle">Step-by-step wizard to generate billing files from ticket data</div>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" onclick="saveDraft()">Save Draft</button>
+    <button class="btn primary" id="continueBtn">Continue</button>
+  </div>
+
+  <div class="wrap">
+    <form method="post" id="billingRunForm">
+      {% csrf_token %}
+      <div class="stepper" id="stepper">
+        <div class="step active" data-step="1"><div class="badge">1</div><div class="label">Select Customer & Account</div></div>
+        <div class="step" data-step="2"><div class="badge">2</div><div class="label">Select Billing Period</div></div>
+        <div class="step" data-step="3"><div class="badge">3</div><div class="label">Import & Review Tickets</div></div>
+        <div class="step" data-step="4"><div class="badge">4</div><div class="label">Apply Rates & PO</div></div>
+        <div class="step" data-step="5"><div class="badge">5</div><div class="label">Generate File</div></div>
+      </div>
+
+      <div id="steps">
+        <!-- STEP 1: Select Customer & Account -->
+        <section class="grid" data-step="1">
+          <div class="card panel">
+            <h3>Step 1: Select Customer & Account</h3>
+            <div class="hint">Choose the customer and end customer account for this billing run</div>
+            
+            <div class="field">
+              <div class="field-label">Customer</div>
+              <select id="customerSelect" name="customer" onchange="loadCustomerAccounts()">
+                <option value="">Select customer...</option>
+                {% for customer in customers %}
+                <option value="{{ customer.id }}">{{ customer.name }} ({{ customer.code }})</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="list" id="accountsList" style="display:none;">
+              <!-- Accounts will be loaded dynamically -->
+            </div>
+          </div>
+
+          <aside class="card summary">
+            <h4>Selection Summary</h4>
+            <div class="kv"><div class="muted">Customer</div><div id="selectedCustomer">Not selected</div></div>
+            <div class="kv"><div class="muted">Account</div><div id="selectedAccount">Not selected</div></div>
+            <div class="kv"><div class="muted">Billing Cycle</div><div id="selectedBillingCycle">-</div></div>
+            <div class="kv"><div class="muted">Currency</div><div id="selectedCurrency">-</div></div>
+            <div class="kv"><div class="muted">Active PO</div><div id="selectedPO">-</div></div>
+            <div style="margin-top:10px">
+              <div class="placeholder" id="accountDetails">Account Details — select an account</div>
+            </div>
+          </aside>
+        </section>
+
+        <!-- STEP 2: Select Billing Period -->
+        <section class="grid hide" data-step="2">
+          <div class="card panel">
+            <h3>Step 2: Select Billing Period</h3>
+            <div class="hint">Choose the billing period for this run</div>
+            
+            <div class="period-options">
+              <label class="period-option">
+                <input type="radio" name="period_type" value="current_month" class="radio">
+                <span>Current Month ({{ current_month }})</span>
+              </label>
+              <label class="period-option">
+                <input type="radio" name="period_type" value="previous_month" class="radio">
+                <span>Previous Month ({{ previous_month }})</span>
+              </label>
+              <label class="period-option">
+                <input type="radio" name="period_type" value="custom" class="radio">
+                <span>Custom Date Range</span>
+              </label>
+            </div>
+
+            <div class="date-range-grid" id="customDateRange" style="display:none;">
+              <div class="field">
+                <div class="field-label">Start Date</div>
+                <input type="date" name="start_date" class="input">
+              </div>
+              <div class="field">
+                <div class="field-label">End Date</div>
+                <input type="date" name="end_date" class="input">
+              </div>
+            </div>
+          </div>
+
+          <aside class="card summary">
+            <h4>Billing Period Summary</h4>
+            <div class="kv"><div class="muted">Period Type</div><div id="selectedPeriodType">Not selected</div></div>
+            <div class="kv"><div class="muted">Start Date</div><div id="selectedStartDate">-</div></div>
+            <div class="kv"><div class="muted">End Date</div><div id="selectedEndDate">-</div></div>
+            <div class="kv"><div class="muted">Total Days</div><div id="totalDays">-</div></div>
+          </aside>
+        </section>
+
+        <!-- STEP 3: Import & Review Tickets -->
+        <section class="card panel hide" data-step="3">
+          <h3>Step 3: Import & Review Tickets</h3>
+          <div class="hint">Import ticket data for the selected period</div>
+          
+          <div class="field">
+            <div class="field-label">Upload Tickets File (CSV/Excel)</div>
+            <input type="file" name="tickets_file" accept=".csv,.xlsx,.xls" class="input">
+          </div>
+          
+          <div class="placeholder" id="ticketsPreview">
+            Upload a file to preview ticket data
+          </div>
+        </section>
+
+        <!-- STEP 4: Apply Rates & PO -->
+        <section class="card panel hide" data-step="4">
+          <h3>Step 4: Apply Rates & Purchase Order</h3>
+          <div class="hint">Review and apply rate cards and purchase order allocations</div>
+          
+          <div class="field">
+            <div class="field-label">Rate Card</div>
+            <select name="rate_card" class="input">
+              <option value="">Auto-select based on account...</option>
+            </select>
+          </div>
+          
+          <div class="placeholder">
+            Rate calculation and PO allocation summary will appear here
+          </div>
+        </section>
+
+        <!-- STEP 5: Generate File -->
+        <section class="card panel hide" data-step="5">
+          <h3>Step 5: Generate Billing File</h3>
+          <div class="hint">Review final billing run and generate output file</div>
+          
+          <div class="placeholder">
+            Final billing run summary and export options
+          </div>
+        </section>
+      </div>
+
+      <div class="footer">
+        <button type="button" class="btn" id="backBtn">Back</button>
+        <button type="button" class="btn primary" id="continueBtn">Continue</button>
+        <button type="submit" class="btn primary hide" id="submitBtn">Create Billing Run</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentStep = 1;
+let selectedCustomerId = null;
+let selectedAccountId = null;
+
+function setStep(n) {
+  currentStep = n;
+  document.querySelectorAll('.step').forEach(el => 
+    el.classList.toggle('active', +el.dataset.step === n)
+  );
+  document.querySelectorAll('#steps > section').forEach(el => 
+    el.classList.toggle('hide', +el.dataset.step !== n)
+  );
+  
+  // Show/hide appropriate buttons
+  document.getElementById('backBtn').style.display = n === 1 ? 'none' : 'inline-flex';
+  document.getElementById('continueBtn').style.display = n === 5 ? 'none' : 'inline-flex';
+  document.getElementById('submitBtn').classList.toggle('hide', n !== 5);
+}
+
+function loadCustomerAccounts() {
+  const customerId = document.getElementById('customerSelect').value;
+  if (!customerId) return;
+  
+  selectedCustomerId = customerId;
+  const customerName = document.getElementById('customerSelect').selectedOptions[0].text;
+  document.getElementById('selectedCustomer').textContent = customerName;
+  
+  // Fetch accounts for this customer
+  fetch(`/customers/accounts/api/${customerId}/`)
+    .then(response => response.json())
+    .then(data => {
+      const accountsList = document.getElementById('accountsList');
+      accountsList.innerHTML = '';
+      
+      if (data.accounts && data.accounts.length > 0) {
+        data.accounts.forEach(account => {
+          const row = document.createElement('label');
+          row.className = 'row';
+          row.innerHTML = `
+            <input type="radio" class="radio" name="account" value="${account.id}" onchange="selectAccount(${account.id})">
+            <div>
+              <div class="acct-title">${account.account_id}</div>
+              <div class="acct-sub">${account.name}</div>
+            </div>
+            <div class="pill">${account.billing_cycle}</div>
+            <div class="currency">${account.currency}</div>
+          `;
+          accountsList.appendChild(row);
+        });
+        accountsList.style.display = 'block';
+      }
+    })
+    .catch(error => console.error('Error loading accounts:', error));
+}
+
+function selectAccount(accountId) {
+  selectedAccountId = accountId;
+  
+  // Fetch account details
+  fetch(`/customers/accounts/api/account/${accountId}/`)
+    .then(response => response.json())
+    .then(data => {
+      document.getElementById('selectedAccount').textContent = data.name;
+      document.getElementById('selectedBillingCycle').textContent = data.billing_cycle;
+      document.getElementById('selectedCurrency').textContent = data.currency;
+      document.getElementById('selectedPO').textContent = data.active_po || 'No active PO';
+      
+      document.getElementById('accountDetails').innerHTML = `
+        <div style="text-align:left; font-size:12px;">
+          <strong>Account ID:</strong> ${data.account_id}<br>
+          <strong>Region:</strong> ${data.region}<br>
+          <strong>Status:</strong> ${data.status}<br>
+          <strong>PO Balance:</strong> ${data.po_balance || 'N/A'}
+        </div>
+      `;
+    })
+    .catch(error => console.error('Error loading account details:', error));
+}
+
+function saveDraft() {
+  // Implementation for saving draft
+  alert('Draft saved successfully!');
+}
+
+// Step navigation
+document.getElementById('continueBtn').addEventListener('click', () => {
+  if (currentStep === 1 && !selectedAccountId) {
+    alert('Please select a customer and account before continuing.');
+    return;
+  }
+  setStep(Math.min(5, currentStep + 1));
+});
+
+document.getElementById('backBtn').addEventListener('click', () => 
+  setStep(Math.max(1, currentStep - 1))
+);
+
+document.querySelectorAll('.step').forEach(el => 
+  el.addEventListener('click', () => setStep(+el.dataset.step))
+);
+
+// Period type selection
+document.querySelectorAll('input[name="period_type"]').forEach(radio => {
+  radio.addEventListener('change', function() {
+    const customRange = document.getElementById('customDateRange');
+    customRange.style.display = this.value === 'custom' ? 'grid' : 'none';
+    
+    document.getElementById('selectedPeriodType').textContent = this.nextElementSibling.textContent;
+  });
+});
+
+// Form submission
+document.getElementById('billingRunForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const formData = new FormData(this);
+  formData.append('customer_id', selectedCustomerId);
+  formData.append('account_id', selectedAccountId);
+  formData.append('step', currentStep);
+  
+  fetch('{% url "billing:create_wizard" %}', {
+    method: 'POST',
+    body: formData,
+    headers: {
+      'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      window.location.href = '{% url "billing:list" %}';
+    } else {
+      alert('Error creating billing run: ' + data.error);
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('An error occurred while creating the billing run.');
+  });
+});
+
+// Initialize
+setStep(1);
+</script>
+{% endblock %}

@@ -1,0 +1,751 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}{{ account.name }} - Account Details{% endblock %}
+
+{% block page_title %}Account Details{% endblock %}
+
+{% block extra_css %}
+<style>
+.account-detail {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.breadcrumb a {
+  color: #5335ff;
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.account-header {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: white;
+  border-radius: 16px;
+  padding: 32px;
+  margin-bottom: 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+.account-header::before {
+  content: '';
+  position: absolute;
+  top: -50px;
+  right: -50px;
+  width: 150px;
+  height: 150px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 50%;
+}
+
+.account-info {
+  position: relative;
+  z-index: 1;
+}
+
+.account-title {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.account-subtitle {
+  font-size: 18px;
+  opacity: 0.9;
+  margin-bottom: 24px;
+}
+
+.account-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 24px;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.meta-icon {
+  width: 20px;
+  height: 20px;
+  opacity: 0.9;
+}
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 16px;
+}
+
+.status-indicator.active {
+  background: rgba(34, 197, 94, 0.2);
+  color: #ffffff;
+}
+
+.status-indicator.missing {
+  background: rgba(251, 191, 36, 0.2);
+  color: #ffffff;
+}
+
+.status-indicator.low {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ffffff;
+}
+
+.action-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.btn {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.2s;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.btn-primary {
+  background: #5335ff;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #4338ca;
+  color: white;
+}
+
+.btn-outline {
+  background: white;
+  color: #5335ff;
+  border: 2px solid #5335ff;
+}
+
+.btn-outline:hover {
+  background: #5335ff;
+  color: white;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+  color: white;
+}
+
+.btn-sm {
+  padding: 8px 16px;
+  font-size: 12px;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: 1fr 350px;
+  gap: 32px;
+  margin-bottom: 32px;
+}
+
+.main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.card-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.card-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a202c;
+  margin: 0;
+}
+
+.card-body {
+  padding: 24px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.info-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.info-value {
+  font-size: 16px;
+  font-weight: 500;
+  color: #1a202c;
+}
+
+.po-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+  transition: all 0.2s;
+}
+
+.po-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.po-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.po-number {
+  font-family: monospace;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a202c;
+}
+
+.po-status {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.po-status.active {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.po-status.expired {
+  background: #fecaca;
+  color: #991b1b;
+}
+
+.po-details {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.po-detail {
+  text-align: center;
+}
+
+.po-detail-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a202c;
+}
+
+.po-detail-label {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.utilization-bar {
+  margin-top: 16px;
+}
+
+.utilization-label {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #059669);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progress-fill.warning {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.progress-fill.danger {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.billing-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.billing-table th,
+.billing-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.billing-table th {
+  background: #f8fafc;
+  font-weight: 600;
+  font-size: 12px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: #64748b;
+}
+
+.empty-state h3 {
+  margin-bottom: 8px;
+  color: #1a202c;
+}
+
+.stats-mini {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.stat-mini {
+  text-align: center;
+  padding: 16px;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.stat-mini-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.stat-mini-label {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+@media (max-width: 1024px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .po-details {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="account-detail">
+  <!-- Breadcrumb -->
+  <div class="breadcrumb">
+    <a href="{% url 'customers:list' %}">Customers</a>
+    <span>›</span>
+    <a href="{% url 'customers:detail' account.customer.id %}">{{ account.customer.name }}</a>
+    <span>›</span>
+    <span>{{ account.name }}</span>
+  </div>
+
+  <!-- Account Header -->
+  <div class="account-header">
+    <div class="account-info">
+      <div class="account-title">{{ account.name }}</div>
+      <div class="account-subtitle">{{ account.account_id }} • {{ account.customer.name }}</div>
+      
+      <div class="account-meta-grid">
+        <div class="meta-item">
+          <svg class="meta-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+          <span>{{ account.region.name }}</span>
+        </div>
+        
+        <div class="meta-item">
+          <svg class="meta-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
+            <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+          </svg>
+          <span>{{ account.billing_cycle.name }}</span>
+        </div>
+        
+        <div class="meta-item">
+          <svg class="meta-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/>
+          </svg>
+          <span>{{ account.currency }}</span>
+        </div>
+        
+        {% if account.contact_email %}
+        <div class="meta-item">
+          <svg class="meta-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+          </svg>
+          <span>{{ account.contact_email }}</span>
+        </div>
+        {% endif %}
+      </div>
+      
+      <div class="status-indicator {{ account.status }}">
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor">
+          <circle cx="4" cy="4" r="3"/>
+        </svg>
+        {{ account.get_status_display }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Bar -->
+  <div class="action-bar">
+    <a href="{% url 'purchase_orders:create' %}?account={{ account.id }}" class="btn btn-primary">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
+        <path d="M14 2v6h6"/>
+      </svg>
+      Create Purchase Order
+    </a>
+    <a href="{% url 'billing:create' %}?account={{ account.id }}" class="btn btn-outline">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+      </svg>
+      Create Billing Run
+    </a>
+    <a href="#" class="btn btn-outline">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+      </svg>
+      Edit Account
+    </a>
+  </div>
+
+  <!-- Content Grid -->
+  <div class="content-grid">
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Account Information Card -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Account Information</h3>
+        </div>
+        <div class="card-body">
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">Account Name</span>
+              <span class="info-value">{{ account.name }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Account ID</span>
+              <span class="info-value">{{ account.account_id }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Customer</span>
+              <span class="info-value">
+                <a href="{% url 'customers:detail' account.customer.id %}">{{ account.customer.name }}</a>
+              </span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Region</span>
+              <span class="info-value">{{ account.region.name }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Billing Cycle</span>
+              <span class="info-value">{{ account.billing_cycle.name }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Currency</span>
+              <span class="info-value">{{ account.get_currency_display }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Status</span>
+              <span class="info-value">{{ account.get_status_display }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Created</span>
+              <span class="info-value">{{ account.created_at|date:"M d, Y" }}</span>
+            </div>
+            {% if account.contact_email %}
+            <div class="info-item">
+              <span class="info-label">Contact Email</span>
+              <span class="info-value">{{ account.contact_email }}</span>
+            </div>
+            {% endif %}
+            {% if account.contact_phone %}
+            <div class="info-item">
+              <span class="info-label">Contact Phone</span>
+              <span class="info-value">{{ account.contact_phone }}</span>
+            </div>
+            {% endif %}
+          </div>
+          
+          {% if account.notes %}
+          <div style="margin-top: 24px;">
+            <span class="info-label">Notes</span>
+            <div style="margin-top: 8px; padding: 16px; background: #f8fafc; border-radius: 8px; color: #374151;">
+              {{ account.notes }}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Purchase Orders -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Purchase Orders</h3>
+        </div>
+        <div class="card-body">
+          {% if purchase_orders %}
+            {% for po in purchase_orders %}
+            <div class="po-card">
+              <div class="po-header">
+                <span class="po-number">{{ po.po_number }}</span>
+                <span class="po-status {{ po.status }}">{{ po.get_status_display }}</span>
+              </div>
+              
+              <div class="po-details">
+                <div class="po-detail">
+                  <div class="po-detail-value">${{ po.total_amount|floatformat:0 }}</div>
+                  <div class="po-detail-label">Total Amount</div>
+                </div>
+                <div class="po-detail">
+                  <div class="po-detail-value">${{ po.remaining_balance|floatformat:0 }}</div>
+                  <div class="po-detail-label">Remaining</div>
+                </div>
+                <div class="po-detail">
+                  <div class="po-detail-value">{{ po.utilization_percentage|floatformat:0 }}%</div>
+                  <div class="po-detail-label">Utilized</div>
+                </div>
+              </div>
+              
+              <div class="utilization-bar">
+                <div class="utilization-label">Budget Utilization</div>
+                <div class="progress-bar">
+                    {% with utilization=po.utilization_percentage %}
+                    <div class="progress-fill {% if utilization > 80 %}danger{% elif utilization > 60 %}warning{% endif %}" 
+                        style="width: {{ utilization }}%"></div>
+                    {% endwith %}
+                </div>
+              </div>
+              
+              <div style="margin-top: 16px; display: flex; gap: 12px;">
+                <a href="{% url 'purchase_orders:detail' po.id %}" class="btn btn-outline btn-sm">View Details</a>
+                {% if po.status == 'active' %}
+                <a href="{% url 'billing:create' %}?po={{ po.id }}" class="btn btn-primary btn-sm">Create Billing</a>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="empty-state">
+              <h3>No Purchase Orders</h3>
+              <p>Create a purchase order to start billing for this account</p>
+              <a href="{% url 'purchase_orders:create' %}?account={{ account.id }}" class="btn btn-primary">
+                Create Purchase Order
+              </a>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Billing History -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Recent Billing History</h3>
+            </div>
+            <div class="card-body">
+                {% if billing_history %}
+                    <table class="billing-table">
+                        <thead>
+                            <tr>
+                                <th>Run ID</th>
+                                <th>Date</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>PO Number</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for billing in billing_history %}
+                            <tr>
+                                <td>{{ billing.run_id }}</td>
+                                <td>{{ billing.billing_date|date:"M d, Y" }}</td>
+                                <td>${{ billing.amount|floatformat:0 }}</td>
+                                <td>{{ billing.get_status_display }}</td>
+                                <td>{{ billing.purchase_order.po_number }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div class="empty-state">
+                        <h3>No Billing History</h3>
+                        <p>Billing runs will appear here once they are created</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <!-- Quick Stats -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Quick Stats</h3>
+        </div>
+        <div class="card-body">
+          <div class="stats-mini">
+            <div class="stat-mini">
+              <div class="stat-mini-value">{{ purchase_orders.count }}</div>
+              <div class="stat-mini-label">Total POs</div>
+            </div>
+            <div class="stat-mini">
+              <div class="stat-mini-value">{{ active_pos_count|default:0 }}</div>
+              <div class="stat-mini-label">Active POs</div>
+            </div>
+            <div class="stat-mini">
+              <div class="stat-mini-value">${{ total_po_value|default:0|floatformat:0 }}</div>
+              <div class="stat-mini-label">Total Value</div>
+            </div>
+            <div class="stat-mini">
+              <div class="stat-mini-value">${{ remaining_balance|default:0|floatformat:0 }}</div>
+              <div class="stat-mini-label">Remaining</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active PO Summary -->
+      {% if account.active_purchase_order %}
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Active Purchase Order</h3>
+        </div>
+        <div class="card-body">
+          <div style="text-align: center;">
+            <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">
+              {{ account.active_purchase_order.po_number }}
+            </div>
+            <div style="font-size: 24px; font-weight: 700; color: #059669; margin-bottom: 4px;">
+              {{ account.get_formatted_balance }}
+            </div>
+            <div style="font-size: 12px; color: #64748b;">
+              Remaining Balance
+            </div>
+            
+            <div style="margin: 20px 0;">
+              <div style="font-size: 12px; color: #64748b; margin-bottom: 8px;">
+                Budget Utilization
+              </div>
+              {% if account.active_purchase_order %}
+                {% with utilization=account.active_purchase_order.utilization_percentage %}
+                    <div class="progress-bar">
+                        <div class="progress-fill {% if utilization > 80 %}danger{% elif utilization > 60 %}warning{% endif %}" 
+                            style="width: {{ utilization }}%"></div>
+                    </div>
+                {% endwith %}
+             {% endif %}
+              <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                {{ account.active_purchase_order.utilization_percentage|floatformat:1 }}% used
+              </div>
+            </div>
+            
+            <a href="{% url 'purchase_orders:detail' account.active_purchase_order.id %}" class="btn btn-outline" style="width: 100%;">
+              View PO Details
+            </a>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Recent Activity -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Recent Activity</h3>
+        </div>
+        <div class="card-body">
+          <div class="empty-state">
+            <p style="margin: 0;">No recent activity</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

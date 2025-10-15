@@ -1,0 +1,201 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Purchase Order {{ purchase_order.po_number }} - Excis Billing System{% endblock %}
+
+{% block extra_css %}
+<style>
+  .detail-card {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+  <!-- Header -->
+  <div class="flex justify-between items-center mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Purchase Order {{ purchase_order.po_number }}</h1>
+      <p class="text-gray-600">Details for {{ purchase_order.get_customer_account_display }}</p>
+    </div>
+    <a href="{% url 'purchase_orders:list' %}" class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
+      Back to List
+    </a>
+  </div>
+
+  <!-- Main Content -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- PO Details -->
+    <div class="lg:col-span-2">
+      <div class="detail-card">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Purchase Order Details</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <p class="text-sm text-gray-600">PO Number</p>
+            <p class="font-medium">{{ purchase_order.po_number }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-600">Status</p>
+            <p class="font-medium">{{ purchase_order.get_status_display }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-600">Customer</p>
+            <p class="font-medium">{{ purchase_order.customer.name }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-600">Account</p>
+            <p class="font-medium">{{ purchase_order.account.name|default:purchase_order.customer.code }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-600">Total Amount</p>
+            <p class="font-medium">{{ purchase_order.formatted_amount }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-600">Remaining Balance</p>
+            <p class="font-medium">{{ purchase_order.formatted_balance }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-600">Utilization</p>
+            <p class="font-medium">{{ purchase_order.utilization_percentage|floatformat:1 }}%</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-600">Days Until Expiry</p>
+            <p class="font-medium">{{ purchase_order.days_until_expiry }} days</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-600">Valid From</p>
+            <p class="font-medium">{{ purchase_order.valid_from|date:"Y-m-d" }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-600">Valid Until</p>
+            <p class="font-medium">{{ purchase_order.valid_until|date:"Y-m-d" }}</p>
+          </div>
+          <div class="sm:col-span-2">
+            <p class="text-sm text-gray-600">Notes</p>
+            <p class="font-medium">{{ purchase_order.notes|default:"No notes provided" }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Billing Runs -->
+      <div class="detail-card">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Recent Billing Runs</h2>
+        {% if billing_runs %}
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Run ID</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Billing Date</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              {% for br in billing_runs %}
+              <tr>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ br.run_id }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ br.amount }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ br.billing_date|date:"Y-m-d" }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ br.get_status_display }}</td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="4" class="px-6 py-4 text-sm text-gray-500 text-center">No billing runs found</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-gray-600">No billing runs associated with this purchase order.</p>
+        {% endif %}
+        <p class="mt-4 text-sm text-gray-600">Total Billed: {{ total_billed|floatformat:2 }} {{ purchase_order.currency }}</p>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="lg:col-span-1">
+      <div class="detail-card">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Actions</h2>
+        <div class="space-y-3">
+          <a href="{% url 'purchase_orders:edit' purchase_order.pk %}" class="block w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-center">
+            ✏️ Edit PO
+          </a>
+          <a href="{% url 'purchase_orders:duplicate_po_api' purchase_order.pk %}" class="block w-full px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-center">
+            📄 Duplicate PO
+          </a>
+          {% if purchase_order.status != 'expired' %}
+          <a href="#" class="block w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-center">
+            📊 Generate Billing Run
+          </a>
+          {% endif %}
+          <a href="{% url 'purchase_orders:delete' purchase_order.pk %}" class="block w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-center">
+            🗑️ Delete PO
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Add AJAX handling for duplicate PO
+  document.addEventListener('DOMContentLoaded', function() {
+    const duplicateLink = document.querySelector('a[href*="duplicate_po_api"]');
+    if (duplicateLink) {
+      duplicateLink.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        // Get CSRF token from cookie or meta tag
+        function getCookie(name) {
+          let cookieValue = null;
+          if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+              const cookie = cookies[i].trim();
+              if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+              }
+            }
+          }
+          return cookieValue;
+        }
+        
+        const csrftoken = getCookie('csrftoken') || document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+        
+        fetch(this.href, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            alert(data.message);
+            // Redirect to the new PO detail page
+            const baseUrl = '{% url "purchase_orders:detail" 0 %}'.slice(0, -2); // Remove '0/' from end
+            window.location.href = baseUrl + data.new_po_id + '/';
+          } else {
+            alert('Error: ' + data.error);
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('Error: Failed to duplicate purchase order');
+        });
+      });
+    }
+  });
+</script>
+{% endblock %}

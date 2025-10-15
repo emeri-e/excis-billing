@@ -1,0 +1,956 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Create Purchase Order - Excis Billing System{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-section {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.form-section h5 {
+    color: #374151;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.required-field::after {
+    content: " *";
+    color: #dc2626;
+}
+
+.help-text {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-top: 5px;
+}
+
+.currency-input {
+    position: relative;
+}
+
+.currency-symbol {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.currency-input input {
+    padding-left: 35px;
+}
+
+.date-range-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+@media (max-width: 768px) {
+    .date-range-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.pdf-upload-area {
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    padding: 30px;
+    text-align: center;
+    background: #f9fafb;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.pdf-upload-area:hover {
+    border-color: #3b82f6;
+    background: #f0f9ff;
+}
+
+.pdf-upload-area.dragover {
+    border-color: #3b82f6;
+    background: #dbeafe;
+}
+
+.pdf-data-preview {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 15px 0;
+}
+
+.pdf-data-preview .badge {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.debug-info {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    font-family: monospace;
+    font-size: 0.85rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-1">Create Purchase Order</h2>
+                    <p class="text-muted mb-0">Set up a new purchase order for billing operations</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'purchase_orders:list' %}" class="btn btn-outline-secondary">
+                        <i class="material-symbols-outlined me-1">arrow_back</i>
+                        Back to List
+                    </a>
+                </div>
+            </div>
+
+            <!-- Display Messages -->
+            {% if messages %}
+            <div class="alert-container mb-4">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- PDF Upload Section -->
+            <div class="form-section mb-4">
+                <h5><i class="material-symbols-outlined me-2">upload</i>Upload Purchase Order PDF (Optional)</h5>
+                
+                <!-- PDF Upload Form - SEPARATE FROM PO FORM -->
+                <form method="post" enctype="multipart/form-data" id="pdfUploadForm">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="id_pdf_file" class="form-label">Select PDF File</label>
+                                {{ pdf_form.pdf_file }}
+                                {% if pdf_form.pdf_file.help_text %}
+                                <div class="form-text">{{ pdf_form.pdf_file.help_text }}</div>
+                                {% endif %}
+                                {% if pdf_form.pdf_file.errors %}
+                                <div class="text-danger">
+                                    {% for error in pdf_form.pdf_file.errors %}
+                                    <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="d-flex gap-2">
+                                <button type="submit" name="upload_pdf" value="1" class="btn btn-success" id="uploadPdfBtn">
+                                    <i class="material-symbols-outlined me-1">auto_fix_high</i>
+                                    Upload & Extract Data
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="resetPdfForm()">
+                                    <i class="material-symbols-outlined me-1">close</i>
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Main PO Creation Form -->
+            <form method="post" id="createPOForm">
+                {% csrf_token %}
+                
+                <!-- Customer Information -->
+                <div class="form-section">
+                    <h5><i class="material-symbols-outlined me-2">business</i>Customer Information</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label required-field">Customer</label>
+                            {{ form.customer }}
+                            {% if form.customer.help_text %}
+                            <div class="help-text">{{ form.customer.help_text }}</div>
+                            {% endif %}
+                            {% if form.customer.errors %}
+                            <div class="text-danger small">{{ form.customer.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Purchase Order Details -->
+                <div class="form-section">
+                    <h5><i class="material-symbols-outlined me-2">receipt_long</i>Purchase Order Details</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label required-field">Currency</label>
+                            {{ form.currency }}
+                            {% if form.currency.help_text %}
+                            <div class="help-text">{{ form.currency.help_text }}</div>
+                            {% endif %}
+                            {% if form.currency.errors %}
+                            <div class="text-danger small">{{ form.currency.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label required-field">Total Amount</label>
+                            <div class="currency-input">
+                                <span class="currency-symbol" id="currencySymbol">$</span>
+                                {{ form.total_amount }}
+                            </div>
+                            {% if form.total_amount.help_text %}
+                            <div class="help-text">{{ form.total_amount.help_text }}</div>
+                            {% endif %}
+                            {% if form.total_amount.errors %}
+                            <div class="text-danger small">{{ form.total_amount.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Balance</label>
+                            <div class="currency-input">
+                                <span class="currency-symbol" id="currencySymbolBalance">$</span>
+                                {{ form.balance }}
+                            </div>
+                            {% if form.balance.help_text %}
+                            <div class="help-text">{{ form.balance.help_text }}</div>
+                            {% endif %}
+                            {% if form.balance.errors %}
+                            <div class="text-danger small">{{ form.balance.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Reference Number</label>
+                            {{ form.reference_number }}
+                            {% if form.reference_number.help_text %}
+                            <div class="help-text">{{ form.reference_number.help_text }}</div>
+                            {% endif %}
+                            {% if form.reference_number.errors %}
+                            <div class="text-danger small">{{ form.reference_number.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- Validity Period -->
+                <div class="form-section">
+                    <h5><i class="material-symbols-outlined me-2">date_range</i>Validity Period</h5>
+                    <div class="date-range-container">
+                        <div>
+                            <label class="form-label required-field">Valid From</label>
+                            {{ form.valid_from }}
+                            {% if form.valid_from.errors %}
+                            <div class="text-danger small">{{ form.valid_from.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <label class="form-label required-field">Valid Until</label>
+                            {{ form.valid_until }}
+                            {% if form.valid_until.errors %}
+                            <div class="text-danger small">{{ form.valid_until.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="alert alert-info">
+                            <i class="material-symbols-outlined me-2">info</i>
+                            <strong>Duration:</strong> <span id="durationDisplay">Please select both dates</span>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- Additional Information -->
+                <div class="form-section">
+                    <h5><i class="material-symbols-outlined me-2">notes</i>Additional Information</h5>
+                    <div class="row">
+                        <div class="col-12">
+                            <label class="form-label">Notes</label>
+                            {{ form.notes }}
+                            <div class="help-text">Optional notes about this purchase order</div>
+                            {% if form.notes.errors %}
+                            <div class="text-danger small">{{ form.notes.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="form-section">
+                    <div class="d-flex justify-content-between flex-wrap gap-2">
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="button" class="btn btn-secondary" onclick="autoFillReference()">
+                                <i class="material-symbols-outlined me-1">auto_fix_high</i>
+                                Auto-Generate Reference
+                            </button>
+                            <button type="button" class="btn btn-outline-info" onclick="fillFromPdf()" {% if not has_pdf_data %}disabled{% endif %}>
+                                <i class="material-symbols-outlined me-1">download</i>
+                                Fill from PDF
+                            </button>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <a href="{% url 'purchase_orders:list' %}" class="btn btn-outline-secondary">Cancel</a>
+                            <button type="submit" name="create_po" value="draft" class="btn btn-outline-primary">
+                                <i class="material-symbols-outlined me-1">save</i>
+                                Save as Draft
+                            </button>
+                            <button type="submit" name="create_po" value="active" class="btn btn-primary">
+                                <i class="material-symbols-outlined me-1">check_circle</i>
+                                Create & Activate
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden data for JavaScript -->
+<script type="application/json" id="pdf-data">{{ pdf_data_json|safe }}</script>
+{% endblock %}
+
+<!-- Add this to the bottom of your create.html template, replacing the existing JavaScript section -->
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== CREATE PO FORM INITIALIZATION ===');
+    
+    // Get PDF data from template
+    const pdfDataRaw = '{{ pdf_data_json|safe }}';
+    const pdfData = pdfDataRaw ? JSON.parse(pdfDataRaw) : {};
+    const hasPdfData = {{ has_pdf_data|yesno:"true,false" }};
+    
+    console.log('PDF data available:', hasPdfData);
+    console.log('PDF data:', pdfData);
+    console.log('PDF data keys:', Object.keys(pdfData));
+    
+    // Currency symbol mapping
+    const currencySymbols = {
+        'USD': '$',
+        'EUR': '€',
+        'GBP': '£',
+        'CAD': 'C$',
+        'AUD': 'A$',
+        'INR': '₹',
+        'JPY': '¥',
+        'THB': '฿'
+    };
+
+    // Get form elements
+    const formElements = {
+        customer: document.querySelector('select[name="customer"]'),
+        account: document.querySelector('select[name="account"]'),
+        currency: document.querySelector('select[name="currency"]'),
+        reference: document.querySelector('input[name="reference_number"]'),
+        totalAmount: document.querySelector('input[name="total_amount"]'),
+        balance: document.querySelector('input[name="balance"]'),
+        validFrom: document.querySelector('input[name="valid_from"]'),
+        validUntil: document.querySelector('input[name="valid_until"]'),
+        notes: document.querySelector('textarea[name="notes"]')
+    };
+
+    console.log('Form elements found:', Object.fromEntries(
+        Object.entries(formElements).map(([key, el]) => [key, !!el])
+    ));
+
+    // Auto-fill from PDF data immediately if available
+    if (hasPdfData && Object.keys(pdfData).length > 0) {
+        console.log('Auto-filling form with PDF data...');
+        setTimeout(() => {
+            autoFillFromPdfData(pdfData);
+        }, 500); // Small delay to ensure form is ready
+    }
+
+    // Function to auto-fill form from PDF data
+    function autoFillFromPdfData(data) {
+        console.log('=== AUTO-FILLING FORM FROM PDF DATA ===');
+        let fieldsUpdated = 0;
+        
+        // Reference number
+        if (data.reference_number && formElements.reference) {
+            if (!formElements.reference.value.trim()) {
+                formElements.reference.value = data.reference_number;
+                formElements.reference.dispatchEvent(new Event('input', { bubbles: true }));
+                fieldsUpdated++;
+                console.log('✓ Reference number filled:', data.reference_number);
+            } else {
+                console.log('- Reference number already has value:', formElements.reference.value);
+            }
+        }
+
+        // Currency
+        if (data.currency && formElements.currency) {
+            const option = formElements.currency.querySelector(`option[value="${data.currency}"]`);
+            if (option && (!formElements.currency.value || formElements.currency.value === 'USD')) {
+                formElements.currency.value = data.currency;
+                formElements.currency.dispatchEvent(new Event('change', { bubbles: true }));
+                fieldsUpdated++;
+                console.log('✓ Currency filled:', data.currency);
+            } else {
+                console.log('- Currency not filled. Option exists:', !!option, 'Current value:', formElements.currency.value);
+            }
+        }
+
+        // Total amount
+        if (data.total_amount && formElements.totalAmount) {
+            if (!formElements.totalAmount.value.trim()) {
+                formElements.totalAmount.value = parseFloat(data.total_amount).toFixed(2);
+                formElements.totalAmount.dispatchEvent(new Event('input', { bubbles: true }));
+                fieldsUpdated++;
+                console.log('✓ Total amount filled:', data.total_amount);
+            } else {
+                console.log('- Total amount already has value:', formElements.totalAmount.value);
+            }
+        }
+
+        // Balance (same as total amount)
+        if (data.total_amount && formElements.balance) {
+            if (!formElements.balance.value.trim() || formElements.balance.value === '0') {
+                formElements.balance.value = parseFloat(data.total_amount).toFixed(2);
+                formElements.balance.dispatchEvent(new Event('input', { bubbles: true }));
+                fieldsUpdated++;
+                console.log('✓ Balance filled:', data.total_amount);
+            } else {
+                console.log('- Balance already has value:', formElements.balance.value);
+            }
+        }
+
+        // Valid from date
+        if (data.valid_from && formElements.validFrom) {
+            if (!formElements.validFrom.value.trim()) {
+                formElements.validFrom.value = data.valid_from;
+                formElements.validFrom.dispatchEvent(new Event('change', { bubbles: true }));
+                fieldsUpdated++;
+                console.log('✓ Valid from filled:', data.valid_from);
+            } else {
+                console.log('- Valid from already has value:', formElements.validFrom.value);
+            }
+        }
+
+        // Valid until date
+        if (data.valid_until && formElements.validUntil) {
+            if (!formElements.validUntil.value.trim()) {
+                formElements.validUntil.value = data.valid_until;
+                formElements.validUntil.dispatchEvent(new Event('change', { bubbles: true }));
+                fieldsUpdated++;
+                console.log('✓ Valid until filled:', data.valid_until);
+            } else {
+                console.log('- Valid until already has value:', formElements.validUntil.value);
+            }
+        }
+
+        // Notes (combine supplier and description)
+        if ((data.supplier || data.description) && formElements.notes) {
+            if (!formElements.notes.value.trim()) {
+                let notesContent = [];
+                if (data.supplier) {
+                    notesContent.push(`Supplier: ${data.supplier}`);
+                }
+                if (data.description) {
+                    notesContent.push(`Description: ${data.description}`);
+                }
+                if (data.payment_terms) {
+                    notesContent.push(`Payment Terms: ${data.payment_terms}`);
+                }
+                if (data.requester) {
+                    notesContent.push(`Requester: ${data.requester}`);
+                }
+                
+                formElements.notes.value = notesContent.join('\n');
+                formElements.notes.dispatchEvent(new Event('input', { bubbles: true }));
+                fieldsUpdated++;
+                console.log('✓ Notes filled with supplier/description info');
+            } else {
+                console.log('- Notes already has value:', formElements.notes.value.substring(0, 50) + '...');
+            }
+        }
+
+        // Update duration display
+        updateDuration();
+
+        // Update currency symbols
+        updateCurrencySymbols();
+
+        // Show success message
+        if (fieldsUpdated > 0) {
+            showToast(`${fieldsUpdated} fields auto-filled from PDF data!`, 'success');
+            console.log(`✅ Auto-fill completed: ${fieldsUpdated} fields updated`);
+        } else {
+            showToast('PDF data available but form fields already have values.', 'info');
+            console.log('ℹ️ Auto-fill skipped: form fields already populated');
+        }
+    }
+
+    // Manual fill from PDF function (for button click)
+    window.fillFromPdf = function() {
+        if (hasPdfData && Object.keys(pdfData).length > 0) {
+            // Clear form first to force fill
+            if (confirm('This will overwrite any existing form data. Continue?')) {
+                // Clear relevant fields
+                if (formElements.reference) formElements.reference.value = '';
+                if (formElements.totalAmount) formElements.totalAmount.value = '';
+                if (formElements.balance) formElements.balance.value = '';
+                if (formElements.validFrom) formElements.validFrom.value = '';
+                if (formElements.validUntil) formElements.validUntil.value = '';
+                if (formElements.notes) formElements.notes.value = '';
+                
+                // Fill with PDF data
+                autoFillFromPdfData(pdfData);
+            }
+        } else {
+            showToast('No PDF data available to fill the form.', 'warning');
+            console.log('❌ No PDF data available for manual fill');
+        }
+    };
+
+    // Update currency symbols
+    function updateCurrencySymbols() {
+        if (!formElements.currency) return;
+        
+        const currency = formElements.currency.value;
+        const symbol = currencySymbols[currency] || ';
+        
+        const symbolElements = [
+            document.getElementById('currencySymbol'),
+            document.getElementById('currencySymbolBalance')
+        ];
+        
+        symbolElements.forEach(el => {
+            if (el) el.textContent = symbol;
+        });
+    }
+
+    if (formElements.currency) {
+        formElements.currency.addEventListener('change', updateCurrencySymbols);
+        updateCurrencySymbols();
+    }
+
+    // Auto-sync balance with total amount
+    if (formElements.totalAmount && formElements.balance) {
+        formElements.totalAmount.addEventListener('input', function() {
+            if (this.value && (!formElements.balance.value || formElements.balance.value == '0')) {
+                formElements.balance.value = this.value;
+            }
+        });
+    }
+
+    // Load accounts when customer changes
+    if (formElements.customer && formElements.account) {
+        formElements.customer.addEventListener('change', function() {
+            const customerId = this.value;
+            console.log('Customer selected:', customerId);
+            
+            if (!customerId) {
+                formElements.account.innerHTML = '<option value="">Select customer first</option>';
+                if (formElements.reference) {
+                    formElements.reference.placeholder = 'auto from customer (3 chars)';
+                    formElements.reference.value = '';
+                }
+                return;
+            }
+            
+            formElements.account.innerHTML = '<option value="">Loading accounts...</option>';
+            formElements.account.disabled = true;
+            
+            const apiUrl = `/purchase-orders/api/customers/${customerId}/accounts/`;
+            
+            fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                formElements.account.innerHTML = '';
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'No specific account';
+                formElements.account.appendChild(defaultOption);
+                
+                if (data.success && data.accounts && data.accounts.length > 0) {
+                    data.accounts.forEach(account => {
+                        const option = document.createElement('option');
+                        option.value = account.id;
+                        option.textContent = account.display_name || `${account.account_id || `ACC-${account.id}`} - ${account.name}`;
+                        formElements.account.appendChild(option);
+                    });
+                } else {
+                    showToast('No accounts found for this customer.', 'warning');
+                }
+                
+                formElements.account.disabled = false;
+                
+                if (formElements.reference) {
+                    const customerCode = data.customer_code || this.selectedOptions[0].textContent.substring(0, 3).toUpperCase();
+                    formElements.reference.placeholder = `auto from customer (${customerCode})`;
+                    if (!formElements.reference.value) {
+                        formElements.reference.value = customerCode;
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error loading accounts:', error);
+                formElements.account.disabled = false;
+                formElements.account.innerHTML = '<option value="">Error loading accounts</option>';
+                showToast('Failed to load accounts. Please try again.', 'error');
+            });
+        });
+
+        if (formElements.customer.value) {
+            formElements.customer.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }
+
+    // Calculate duration between dates
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    window.updateDuration = debounce(function() {
+        const displayElement = document.getElementById('durationDisplay');
+        
+        if (!formElements.validFrom || !formElements.validUntil || !displayElement) {
+            return;
+        }
+        
+        const fromDate = formElements.validFrom.value;
+        const toDate = formElements.validUntil.value;
+        
+        if (fromDate && toDate) {
+            const from = new Date(fromDate);
+            const to = new Date(toDate);
+            
+            if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+                displayElement.innerHTML = '<span class="text-danger">Invalid date format</span>';
+                return;
+            }
+            
+            const diffTime = Math.abs(to - from);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const diffMonths = Math.round(diffDays / 30.44);
+            
+            if (to <= from) {
+                displayElement.innerHTML = '<span class="text-danger">Invalid date range - end date must be after start date</span>';
+            } else {
+                displayElement.innerHTML = `<span class="text-success">${diffDays} days (approximately ${diffMonths} months)</span>`;
+            }
+        } else {
+            displayElement.textContent = 'Please select both dates';
+        }
+    }, 300);
+
+    if (formElements.validFrom) formElements.validFrom.addEventListener('change', updateDuration);
+    if (formElements.validUntil) formElements.validUntil.addEventListener('change', updateDuration);
+
+    // Set default dates if not already set
+    const today = new Date().toISOString().split('T')[0];
+    const nextYear = new Date();
+    nextYear.setFullYear(nextYear.getFullYear() + 1);
+    const nextYearStr = nextYear.toISOString().split('T')[0];
+    
+    if (formElements.validFrom && !formElements.validFrom.value) {
+        formElements.validFrom.value = today;
+    }
+    if (formElements.validUntil && !formElements.validUntil.value) {
+        formElements.validUntil.value = nextYearStr;
+    }
+    
+    updateDuration();
+
+    // Form validation
+    const form = document.getElementById('createPOForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const submitButtons = form.querySelectorAll('button[type="submit"]');
+            submitButtons.forEach(btn => {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="material-symbols-outlined me-1">hourglass_empty</i> Processing...';
+            });
+
+            const fromDate = formElements.validFrom ? formElements.validFrom.value : null;
+            const toDate = formElements.validUntil ? formElements.validUntil.value : null;
+            const totalAmount = formElements.totalAmount ? formElements.totalAmount.value : null;
+            const balance = formElements.balance ? formElements.balance.value : null;
+            
+            if (fromDate && toDate && new Date(toDate) <= new Date(fromDate)) {
+                e.preventDefault();
+                showToast('End date must be after start date', 'error');
+                submitButtons.forEach(btn => {
+                    btn.disabled = false;
+                    btn.innerHTML = btn.getAttribute('data-original-text') || btn.innerHTML;
+                });
+                return false;
+            }
+            
+            if (totalAmount && balance && parseFloat(balance) > parseFloat(totalAmount)) {
+                e.preventDefault();
+                showToast('Balance cannot be greater than total amount', 'error');
+                submitButtons.forEach(btn => {
+                    btn.disabled = false;
+                    btn.innerHTML = btn.getAttribute('data-original-text') || btn.innerHTML;
+                });
+                return false;
+            }
+        });
+
+        form.querySelectorAll('button[type="submit"]').forEach(btn => {
+            btn.setAttribute('data-original-text', btn.innerHTML);
+        });
+    }
+
+    // PDF Upload functionality
+    setupPdfUpload();
+
+    function setupPdfUpload() {
+        const dropZone = document.getElementById('pdfDropZone');
+        const fileInput = document.getElementById('pdfFileInput');
+        const uploadActions = document.getElementById('uploadActions');
+        const uploadProgress = document.getElementById('uploadProgress');
+        const uploadProgressBar = document.getElementById('uploadProgressBar');
+
+        if (!dropZone || !fileInput) {
+            console.log('PDF upload elements not found');
+            return;
+        }
+
+        console.log('Setting up PDF upload functionality');
+
+        function resetPdfUploadUI() {
+            if (fileInput) fileInput.value = '';
+            if (uploadActions) uploadActions.style.display = 'none';
+            if (uploadProgress) uploadProgress.classList.add('d-none');
+            if (uploadProgressBar) uploadProgressBar.style.width = '0%';
+            if (dropZone) {
+                dropZone.innerHTML = `
+                    <div class="text-center">
+                        <i class="material-symbols-outlined display-4 text-muted mb-3">picture_as_pdf</i>
+                        <h5>Drop your PO PDF here or click to browse</h5>
+                        <p class="text-muted mb-3">Supported format: PDF (max 10MB)</p>
+                        <button type="button" class="btn btn-primary" onclick="document.getElementById('pdfFileInput').click()">
+                            <i class="material-symbols-outlined me-1">upload</i>
+                            Select PDF File
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        function handleFileSelection(file) {
+            if (file && file.type === 'application/pdf') {
+                if (file.size > 10 * 1024 * 1024) {
+                    showToast('File size must be less than 10MB.', 'error');
+                    return;
+                }
+
+                console.log('File selected:', file.name, 'Size:', file.size);
+
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+
+                dropZone.innerHTML = `
+                    <div class="text-center">
+                        <i class="material-symbols-outlined display-4 text-success mb-2">description</i>
+                        <h6 class="text-success">${file.name}</h6>
+                        <p class="text-muted mb-0">${(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                `;
+
+                if (uploadActions) {
+                    uploadActions.style.display = 'flex';
+                }
+            }
+        }
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                fileInput.click();
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelection(e.target.files[0]);
+            }
+        });
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                if (file.type === 'application/pdf') {
+                    handleFileSelection(file);
+                } else {
+                    showToast('Please drop a PDF file only.', 'error');
+                }
+            }
+        });
+
+        const pdfForm = document.getElementById('pdfUploadForm');
+        if (pdfForm) {
+            pdfForm.addEventListener('submit', function(e) {
+                const processPdfBtn = document.getElementById('processPdfBtn');
+                if (processPdfBtn) {
+                    processPdfBtn.disabled = true;
+                    processPdfBtn.innerHTML = '<i class="material-symbols-outlined me-1">hourglass_empty</i> Processing PDF...';
+                }
+                if (uploadProgress && uploadProgressBar) {
+                    uploadProgress.classList.remove('d-none');
+                    uploadProgressBar.style.width = '100%';
+                }
+            });
+        }
+
+        window.clearPdfSelection = resetPdfUploadUI;
+    }
+
+    // Clear PDF data function
+    window.clearPdfData = function() {
+        if (confirm('This will clear the extracted PDF data. Are you sure?')) {
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            fetch('{% url "purchase_orders:clear_pdf_data" %}', {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = window.location.href.split('?')[0];
+                    showToast('PDF data cleared successfully!', 'success');
+                } else {
+                    showToast('Failed to clear PDF data.', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error clearing PDF data:', error);
+                showToast('Error clearing PDF data.', 'error');
+            });
+        }
+    };
+
+    // Auto-generate reference number
+    window.autoFillReference = function() {
+        const customerSelect = formElements.customer;
+        const referenceField = formElements.reference;
+        
+        if (!customerSelect || !customerSelect.value) {
+            showToast('Please select a customer first', 'warning');
+            return;
+        }
+        
+        if (!referenceField) {
+            console.error('Reference field not found');
+            return;
+        }
+        
+        const customerText = customerSelect.selectedOptions[0].textContent;
+        const customerCode = customerText.substring(0, 3).toUpperCase();
+        
+        referenceField.value = customerCode;
+        referenceField.dispatchEvent(new Event('input', { bubbles: true }));
+        console.log('Reference number set to:', customerCode);
+        showToast('Reference number auto-generated!', 'success');
+    };
+
+    // Reset form
+    window.resetForm = function() {
+        if (confirm('This will reset all form data. Are you sure?')) {
+            const form = document.getElementById('createPOForm');
+            if (form) {
+                form.reset();
+                updateCurrencySymbols();
+                updateDuration();
+                showToast('Form reset successfully!', 'success');
+            }
+        }
+    };
+
+    // Toast notification function
+    function showToast(message, type = 'info') {
+        if (typeof bootstrap !== 'undefined') {
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-bg-${type} border-0 position-fixed top-0 end-0 m-3`;
+            toast.style.zIndex = '1060';
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            
+            document.body.appendChild(toast);
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            
+            toast.addEventListener('hidden.bs.toast', () => {
+                if (document.body.contains(toast)) {
+                    document.body.removeChild(toast);
+                }
+            });
+        } else {
+            alert(message);
+        }
+    }
+
+    console.log('=== CREATE PO FORM INITIALIZATION COMPLETE ===');
+});
+</script>
+{% endblock %}

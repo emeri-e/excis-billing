@@ -1,0 +1,60 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Manage Countries{% endblock %}
+{% block page_title %}Manage Countries{% endblock %}
+
+{% block content %}
+<div style="max-width: 1000px; margin: 0 auto;">
+    <h2>Manage Countries</h2>
+    
+    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; margin-top: 24px;">
+        <!-- Add Country Form -->
+        <div style="background: white; padding: 24px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <h3 style="margin-top: 0;">Add New Country</h3>
+            <form method="post">
+                {% csrf_token %}
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px;">Country Name *</label>
+                    {{ form.name }}
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px;">Country Code *</label>
+                    {{ form.code }}
+                    <small style="display: block; margin-top: 4px; color: #64748b;">3-letter ISO code (e.g., KEN, USA)</small>
+                </div>
+                <button type="submit" style="width: 100%; padding: 10px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer;">Add Country</button>
+            </form>
+        </div>
+
+        <!-- Countries List -->
+        <div style="background: white; padding: 24px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <h3 style="margin-top: 0;">Available Countries</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #e5e7eb;">
+                        <th style="padding: 12px; text-align: left;">Country Name</th>
+                        <th style="padding: 12px; text-align: left;">Code</th>
+                        <th style="padding: 12px; text-align: left;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for country in countries %}
+                    <tr style="border-bottom: 1px solid #f0f0f0;">
+                        <td style="padding: 12px;">{{ country.name }}</td>
+                        <td style="padding: 12px; font-family: monospace;">{{ country.code }}</td>
+                        <td style="padding: 12px;">
+                            <span style="background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Active</span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" style="padding: 24px; text-align: center; color: #64748b;">No countries found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

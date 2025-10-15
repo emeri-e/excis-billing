@@ -1,0 +1,45 @@
+{% extends 'base/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>PDF Session Data Debug</h2>
+    
+    <div class="card mb-3">
+        <div class="card-header">Session Status</div>
+        <div class="card-body">
+            <p><strong>Has PDF Data:</strong> {{ has_session_data }}</p>
+            <p><strong>Session Keys:</strong> {{ session_keys }}</p>
+        </div>
+    </div>
+    
+    {% if pdf_data %}
+    <div class="card mb-3">
+        <div class="card-header">Extracted PDF Data</div>
+        <div class="card-body">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Field</th>
+                        <th>Value</th>
+                        <th>Type</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key, value in pdf_data.items %}
+                    <tr>
+                        <td><code>{{ key }}</code></td>
+                        <td>{{ value }}</td>
+                        <td><small class="text-muted">{{ value }}</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-warning">No PDF data in session</div>
+    {% endif %}
+    
+    <a href="{% url 'purchase_orders:create' %}" class="btn btn-primary">Back to Create PO</a>
+</div>
+{% endblock %}

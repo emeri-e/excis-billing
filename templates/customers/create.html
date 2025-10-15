@@ -1,0 +1,284 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Add New Customer - Excis Billing System{% endblock %}
+{% block page_title %}Add New Customer{% endblock %}
+
+{% block extra_css %}
+<style>
+.create-customer { max-width: 900px; margin: 0 auto; }
+.form-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white; border-radius: 16px 16px 0 0; padding: 32px;
+  text-align: center; position: relative; overflow: hidden;
+}
+.form-header h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+.form-header p { font-size: 16px; opacity: 0.9; margin: 0; }
+.form-container {
+  background: white; border-radius: 0 0 16px 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden;
+}
+.form-body { padding: 40px; }
+.form-section { margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb; }
+.form-section:last-child { border-bottom: none; }
+.section-title {
+  font-size: 18px; font-weight: 600; color: #1f2937;
+  margin-bottom: 20px; display: flex; align-items: center; gap: 12px;
+}
+.section-icon { width: 20px; height: 20px; color: #667eea; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+.form-group { display: flex; flex-direction: column; }
+.form-label {
+  font-size: 14px; font-weight: 600; color: #374151;
+  margin-bottom: 8px; display: flex; align-items: center; gap: 4px;
+}
+.required { color: #ef4444; }
+.form-input {
+  padding: 12px 16px; border: 2px solid #d1d5db; border-radius: 8px;
+  font-size: 14px; transition: all 0.2s; background: white;
+}
+.form-input:focus {
+  outline: none; border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+.form-textarea { min-height: 100px; resize: vertical; }
+.help-text { font-size: 12px; color: #6b7280; margin-top: 6px; }
+.error-text { font-size: 12px; color: #ef4444; margin-top: 6px; }
+.form-actions {
+  display: flex; gap: 16px; justify-content: flex-end;
+  padding: 24px 40px; background: #f9fafb; border-top: 1px solid #e5e7eb;
+}
+.btn {
+  padding: 12px 24px; border-radius: 8px; font-weight: 600;
+  text-decoration: none; transition: all 0.2s; border: none;
+  cursor: pointer; display: inline-flex; align-items: center;
+  gap: 8px; font-size: 14px;
+}
+.btn-primary {
+  background: #667eea; color: white; border: 2px solid #667eea;
+}
+.btn-primary:hover {
+  background: #5568d3; border-color: #5568d3; color: white;
+  transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+.btn-secondary {
+  background: white; color: #6b7280; border: 2px solid #d1d5db;
+}
+.btn-secondary:hover {
+  background: #f9fafb; color: #374151; border-color: #9ca3af;
+}
+.project-info-box {
+  background: #f0f4ff; border: 2px solid #c7d2fe;
+  border-radius: 8px; padding: 16px; margin-top: 12px;
+}
+.project-info-title {
+  font-weight: 600; color: #4338ca; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 8px;
+}
+@media (max-width: 768px) {
+  .form-row { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="create-customer">
+  <div class="form-container">
+    <div class="form-header">
+      <h1>Add New Customer</h1>
+      <p>Create a new customer and their first project</p>
+    </div>
+
+    <form method="post" id="customerForm">
+      {% csrf_token %}
+      
+      {% if form.errors %}
+      <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 20px 40px;">
+        <div style="font-weight: 600; color: #991b1b; margin-bottom: 8px;">Please correct the following errors:</div>
+        <ul style="list-style: none; padding: 0; margin: 0;">
+          {% for field, errors in form.errors.items %}
+            {% for error in errors %}
+            <li style="color: #991b1b; font-size: 14px; margin-bottom: 4px;">{{ field|title }}: {{ error }}</li>
+            {% endfor %}
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      <div class="form-body">
+        <!-- Customer Information -->
+        <div class="form-section">
+          <h3 class="section-title">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 4c4.42 0 8 3.58 8 8s-3.58 8-8 8-8-3.58-8-8 3.58-8 8-8m0 10c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/>
+            </svg>
+            Customer Information
+          </h3>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="id_name">
+                Customer Name <span class="required">*</span>
+              </label>
+              {{ form.name }}
+              <div class="help-text">Full legal name of the customer organization</div>
+              {% if form.name.errors %}
+                <div class="error-text">{{ form.name.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="id_code">
+                Customer Code <span class="required">*</span>
+              </label>
+              {{ form.code }}
+              <div class="help-text">Unique identifier (3-10 characters)</div>
+              {% if form.code.errors %}
+                <div class="error-text">{{ form.code.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="id_email">
+                Email Address <span class="required">*</span>
+              </label>
+              {{ form.email }}
+              <div class="help-text">Primary contact email</div>
+              {% if form.email.errors %}
+                <div class="error-text">{{ form.email.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="id_phone">
+                Phone Number
+              </label>
+              {{ form.phone }}
+              <div class="help-text">Optional contact phone</div>
+              {% if form.phone.errors %}
+                <div class="error-text">{{ form.phone.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="id_address">
+              Address
+            </label>
+            {{ form.address }}
+            <div class="help-text">Company address</div>
+            {% if form.address.errors %}
+              <div class="error-text">{{ form.address.errors.0 }}</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Initial Project Information -->
+        <div class="form-section">
+          <h3 class="section-title">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+            </svg>
+            Initial Project
+          </h3>
+
+          <div class="project-info-box">
+            <div class="project-info-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+              </svg>
+              Every customer must have at least one project
+            </div>
+            <p style="margin: 0; color: #4338ca; font-size: 13px;">
+              Projects help organize accounts and billing cycles. You can add more projects later.
+            </p>
+          </div>
+
+          <div class="form-row" style="margin-top: 20px;">
+            <div class="form-group">
+              <label class="form-label" for="id_project_name">
+                Project Name <span class="required">*</span>
+              </label>
+              {{ form.project_name }}
+              <div class="help-text">Descriptive name for the project</div>
+              {% if form.project_name.errors %}
+                <div class="error-text">{{ form.project_name.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="id_project_code">
+                Project Code <span class="required">*</span>
+              </label>
+              {{ form.project_code }}
+              <div class="help-text">Short code (e.g., PROJ1, DEFAULT)</div>
+              {% if form.project_code.errors %}
+                <div class="error-text">{{ form.project_code.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="id_project_description">
+              Project Description
+            </label>
+            {{ form.project_description }}
+            <div class="help-text">Optional description of the project</div>
+            {% if form.project_description.errors %}
+              <div class="error-text">{{ form.project_description.errors.0 }}</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <a href="{% url 'customers:list' %}" class="btn btn-secondary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.42-1.41L7.83 13H20v-2z"/>
+          </svg>
+          Cancel
+        </a>
+        <button type="submit" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>
+          Create Customer & Project
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Auto-uppercase codes
+  const codeInput = document.getElementById('id_code');
+  const projectCodeInput = document.getElementById('id_project_code');
+  
+  if (codeInput) {
+    codeInput.addEventListener('input', function() {
+      this.value = this.value.toUpperCase();
+    });
+  }
+  
+  if (projectCodeInput) {
+    projectCodeInput.addEventListener('input', function() {
+      this.value = this.value.toUpperCase();
+    });
+  }
+  
+  // Auto-generate project code from customer code
+  if (codeInput && projectCodeInput) {
+    codeInput.addEventListener('input', function() {
+      if (!projectCodeInput.value) {
+        projectCodeInput.value = this.value ? this.value.toUpperCase() + '-P1' : '';
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

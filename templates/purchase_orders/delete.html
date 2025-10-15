@@ -1,0 +1,65 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Delete Purchase Order {{ purchase_order.po_number }} - Excis Billing System{% endblock %}
+
+{% block extra_css %}
+<style>
+  .confirm-card {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    max-width: 32rem;
+    margin: 0 auto;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+  <!-- Header -->
+  <div class="flex justify-between items-center mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Delete Purchase Order {{ purchase_order.po_number }}</h1>
+      <p class="text-gray-600">Confirm deletion for {{ purchase_order.get_customer_account_display }}</p>
+    </div>
+    <a href="{% url 'purchase_orders:detail' purchase_order.pk %}" class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
+      <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+      </svg>
+      Back to Details
+    </a>
+  </div>
+
+  <!-- Confirmation Card -->
+  <div class="confirm-card">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Confirm Deletion</h2>
+    <p class="text-gray-600 mb-6">Are you sure you want to delete Purchase Order <span class="font-medium">{{ purchase_order.po_number }}</span>? This action cannot be undone.</p>
+    
+    {% if purchase_order.billingrun_set.count > 0 %}
+    <p class="text-red-600 mb-6">Warning: This purchase order has {{ purchase_order.billingrun_set.count }} associated billing runs. You must delete these billing runs before deleting the purchase order.</p>
+    <div class="flex justify-end">
+      <a href="{% url 'purchase_orders:detail' purchase_order.pk %}" class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
+        Cancel
+      </a>
+    </div>
+    {% else %}
+    <form method="POST">
+      {% csrf_token %}
+      <div class="flex justify-end space-x-3">
+        <a href="{% url 'purchase_orders:detail' purchase_order.pk %}" class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
+          Cancel
+        </a>
+        <button type="submit" class="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+          Delete Purchase Order
+        </button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

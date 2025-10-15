@@ -1,0 +1,744 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Purchase Orders - Excis Billing System{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ========== PO DASHBOARD - LIGHT THEME ========== */
+:root{
+  --bg:#ffffff; --panel:#ffffff; --card:#ffffff; --ink:#111827; --muted:#6b7280;
+  --line:#e5e7eb; --brand:#4e1313; --brand-2:#6366f1; --ok:#059669; --warn:#d97706;
+  --low:#f59e0b; --zero:#9ca3af; --critical:#dc2626;
+}
+
+/* container + buttons */
+#po-app{color:var(--ink); background:#ffffff;}
+.po-wrap{max-width:1200px;margin:0 auto;padding:16px}
+.po-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.po-title{font-size:28px;margin:0}
+.po-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:#ffffff;color:var(--ink);padding:10px 14px;border-radius:10px;cursor:pointer;text-decoration:none}
+.po-btn.primary{background:var(--brand);color:#fff;border-color:#4e1313;box-shadow:0 8px 24px rgba(79,70,229,.18)}
+.po-btn:active{transform:translateY(1px)}
+.po-btn:hover{text-decoration:none;opacity:0.9}
+
+/* Notification Bell Styles */
+.notification-bell {
+  position: relative;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+.notification-bell:hover {
+  background: rgba(79, 19, 19, 0.1);
+}
+.notification-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: var(--critical);
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Notification Dropdown */
+.notification-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  width: 350px;
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 1000;
+  display: none;
+}
+.notification-dropdown.show {
+  display: block;
+}
+.notification-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.notification-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.notification-item:hover {
+  background: #f8fafc;
+}
+.notification-item.critical {
+  border-left: 4px solid var(--critical);
+}
+.notification-item.warning {
+  border-left: 4px solid var(--warn);
+}
+.notification-item.info {
+  border-left: 4px solid var(--brand-2);
+}
+.notification-message {
+  font-size: 14px;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.notification-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* cards */
+.po-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:8px 0 16px}
+.po-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.po-card .label{font-size:12px;color:var(--muted)}
+.po-card .value{margin-top:6px;font-weight:700;font-size:22px}
+.po-card .hint{color:var(--muted);font-size:12px}
+
+/* block */
+.po-block{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.po-toolbar{padding:14px;border-bottom:1px solid var(--line)}
+.po-toolbar .row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.po-select,.po-search{background:#ffffff;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 10px}
+.po-search{display:flex;gap:8px;align-items:center}
+.po-search input{all:unset;color:var(--ink);width:200px}
+
+/* table */
+.po-table{padding:10px}
+.po-table table{width:100%;border-collapse:separate;border-spacing:0 8px}
+.po-table thead th{color:var(--muted);font-size:12px;text-align:left;padding:0 12px}
+.po-table tbody td{background:#ffffff;border:1px solid var(--line);padding:12px}
+.po-table tbody tr td:first-child{border-top-left-radius:10px;border-bottom-left-radius:10px}
+.po-table tbody tr td:last-child{border-top-right-radius:10px;border-bottom-right-radius:10px}
+
+/* Low balance row highlighting */
+.po-table tbody tr.low-balance td {
+  background: #fef2f2 !important;
+  border-color: #fecaca !important;
+}
+.po-table tbody tr.low-balance td:first-child{
+  border-left: 4px solid var(--critical);
+}
+
+.right{text-align:right}
+.helper{font-size:12px;color:var(--muted)}
+
+/* status chips */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #f8fafc;
+}
+.status.ok {
+  color: var(--ok);
+  border-color: #bbf7d0;
+  background: #ecfdf5;
+}
+.status.low {
+  color: #92400e;
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+.status.exp {
+  color: #92400e;
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+.status.zero {
+  color: var(--zero);
+  background: #f3f4f6;
+}
+.status.critical {
+  color: white;
+  background: var(--critical);
+  border-color: var(--critical);
+}
+
+/* actions */
+.actions{display:flex;gap:10px;opacity:.9}
+.icon{cursor:pointer;font-size:16px}
+
+/* progress */
+.progress{height:6px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:999px;position:relative;overflow:hidden}
+.bar{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--brand),var(--brand-2))}
+.bar.critical{background:var(--critical)}
+
+/* footer */
+.po-footer{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px;padding:10px 14px;border-top:1px solid var(--line)}
+
+/* modal */
+.modal-dialog{max-width:640px}
+
+@media (max-width:900px){
+  .po-cards{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <section id="po-app">
+    <div class="po-wrap">
+      <div class="po-header">
+        <h2 class="po-title">Purchase Orders</h2>
+        <div style="display:flex;gap:8px;align-items:center">
+          <!-- Notification Bell -->
+          <div class="notification-bell" id="notificationBell">
+            <svg width="20" height="20" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M25.3677 18.9391V9.86768C25.3677 4.70215 21.1655 0.5 16 0.5C10.8345 0.5 6.63232 4.70215 6.63232 9.86768V18.9397C4.96704 19.4224 3.73828 20.9544 3.73828 22.8374C3.73828 25.0386 5.5293 26.8296 7.73096 26.8296H11.377V26.877C11.377 29.4263 13.4507 31.5 16 31.5C18.5493 31.5 20.6231 29.4263 20.6231 26.8769V26.8296H24.2691C26.4707 26.8296 28.2617 25.0386 28.2617 22.7583C28.2617 20.9406 27.033 19.4198 25.3677 18.9391Z" fill="#A098AE"/>
+            </svg>
+            <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+            
+            <!-- Notification Dropdown -->
+            <div class="notification-dropdown" id="notificationDropdown">
+              <div class="notification-header">
+                <h6 style="margin:0">Notifications</h6>
+                <button onclick="markAllAsRead()" style="background:none;border:none;color:var(--brand);cursor:pointer;font-size:12px">Mark all read</button>
+              </div>
+              <div id="notificationsList">
+                <!-- Notifications will be loaded here -->
+              </div>
+            </div>
+          </div>
+          
+          <a href="{% url 'purchase_orders:export' %}" class="po-btn" id="po-export">Export PO Report</a>
+          <a href="{% url 'purchase_orders:create' %}" class="po-btn primary">+ Create New PO</a>
+        </div>
+      </div>
+
+      <div class="po-cards">
+        <div class="po-card">
+          <div class="label">Active POs</div>
+          <div class="value">{{ kpis.active_pos }}</div>
+          <div class="hint">Across all customers</div>
+        </div>
+        <div class="po-card">
+          <div class="label">Total Value</div>
+          <div class="value">${{ kpis.total_value|floatformat:0 }}</div>
+          <div class="hint">Combined PO value</div>
+        </div>
+        <div class="po-card">
+          <div class="label">Low Balance</div>
+          <div class="value">{{ kpis.low_balance_pos }}</div>
+          <div class="hint">Require attention</div>
+        </div>
+        <div class="po-card">
+          <div class="label">Expiring Soon</div>
+          <div class="value">{{ kpis.expiring_soon }}</div>
+          <div class="hint">Within 30 days</div>
+        </div>
+      </div>
+
+      <div class="po-block">
+        <div class="po-toolbar">
+          <div class="row">
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <form method="get" style="display:flex;gap:8px;flex-wrap:wrap">
+                <select name="customer" class="po-select" onchange="this.form.submit()">
+                  <option value="">All Customers</option>
+                  {% for customer in customers %}
+                  <option value="{{ customer.id }}" {% if customer.id|stringformat:"s" == customer_filter %}selected{% endif %}>
+                    {{ customer.name }}
+                  </option>
+                  {% endfor %}
+                </select>
+                
+                <select name="status" class="po-select" onchange="this.form.submit()">
+                  <option value="">All Statuses</option>
+                  {% for value, label in status_choices %}
+                  <option value="{{ value }}" {% if value == status_filter %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+                
+                <select name="account" class="po-select" onchange="this.form.submit()">
+                  <option value="">All Accounts</option>
+                  {% for account in accounts %}
+                  <option value="{{ account.id }}" {% if account.id|stringformat:"s" == account_filter %}selected{% endif %}>
+                    {{ account.account_id }} - {{ account.name }}
+                  </option>
+                  {% endfor %}
+                </select>
+                
+                <button type="button" class="po-btn" onclick="clearFilters()">Clear filters</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div class="po-table">
+          <table>
+            <thead>
+              <tr>
+                <th>PO NUMBER</th>
+                <th>CUSTOMER / ACCOUNT</th>
+                <th class="right">TOTAL AMOUNT</th>
+                <th class="right">REMAINING BALANCE</th>
+                <th>VALID FROM</th>
+                <th>VALID UNTIL</th>
+                <th>STATUS</th>
+                <th>ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for po in purchase_orders %}
+              <tr data-id="{{ po.id }}" {% if po.utilization_percentage >= 90 %}class="low-balance"{% endif %}>
+                <td>
+                  <div style="font-weight:600">
+                    <a href="{% url 'purchase_orders:detail' po.id %}" title="View Details">{{ po.po_number }}</a>
+                  </div>
+                  <div class="helper">Created: {{ po.created_at|date:"M d, Y" }}</div>
+                </td>
+                <td>
+                  <div style="font-weight:600">{{ po.customer.name }}</div>
+                  <div class="helper">
+                    {% if po.account %}
+                      {{ po.account.account_id }} - {{ po.account.name }}
+                    {% else %}
+                      {{ po.customer.code }}
+                    {% endif %}
+                  </div>
+                </td>
+                <td class="right">${{ po.total_amount|floatformat:2 }}</td>
+                <td class="right">
+                  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+                    <div>${{ po.remaining_balance|floatformat:2 }}</div>
+                    <div class="progress" aria-label="remaining">
+                      <div class="bar {% if po.utilization_percentage >= 90 %}critical{% endif %}" style="width:{{ po.utilization_percentage|floatformat:0 }}%"></div>
+                    </div>
+                  </div>
+                </td>
+                <td>{{ po.valid_from|date:"Y-m-d" }}</td>
+                <td>{{ po.valid_until|date:"Y-m-d" }}</td>
+                <td>
+                  <span class="status{% if po.status == 'active' %} ok{% elif po.status == 'expiring_soon' %} exp{% elif po.status == 'expired' %} zero{% else %} low{% endif %}{% if po.utilization_percentage >= 90 %} critical{% endif %}">
+                    {% if po.utilization_percentage >= 90 %}Low Balance{% else %}{{ po.get_status_display }}{% endif %}
+                  </span>
+                </td>
+                <td class="actions">
+                  <span class="icon" onclick="viewPO({{ po.id }})" title="View Details">👁️</span>
+                  <a href="{% url 'purchase_orders:edit' po.id %}" class="icon" title="Edit">✏️</a>
+                  {% if po.status != 'expired' %}
+                  <span class="icon" onclick="duplicatePO({{ po.id }})" title="Duplicate">📄</span>
+                  {% endif %}
+                  <span class="icon text-danger" onclick="deletePO({{ po.id }})" title="Delete">🗑️</span>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">
+                  <div>No purchase orders found</div>
+                  <a href="{% url 'purchase_orders:create' %}" class="po-btn primary" style="margin-top:1rem">Create First PO</a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="po-footer">
+          <div>Showing {{ purchase_orders|length }} of {{ total_count }} results</div>
+          {% if purchase_orders.has_other_pages %}
+          <div style="display:flex;gap:6px">
+            {% if purchase_orders.has_previous %}
+            <a href="?page={{ purchase_orders.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if customer_filter %}&customer={{ customer_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if account_filter %}&account={{ account_filter }}{% endif %}" class="po-btn">Previous</a>
+            {% endif %}
+            
+            <span class="po-btn">{{ purchase_orders.number }} of {{ purchase_orders.paginator.num_pages }}</span>
+            
+            {% if purchase_orders.has_next %}
+            <a href="?page={{ purchase_orders.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if customer_filter %}&customer={{ customer_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if account_filter %}&account={{ account_filter }}{% endif %}" class="po-btn">Next</a>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- PO Details Modal -->
+<div class="modal fade" id="poDetailModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Purchase Order Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="poDetailContent">
+        <!-- Content will be loaded here -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <a href="#" id="editPOLink" class="btn btn-primary">Edit PO</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+
+// Store the clear filters URL as a JavaScript variable
+var clearFiltersUrl = '{% url "purchase_orders:list" %}';
+
+// Notification functionality
+let notificationInterval;
+
+function initNotifications() {
+  // Load initial notifications
+  loadNotifications();
+  
+  // Set up polling for new notifications every 30 seconds
+  notificationInterval = setInterval(loadNotifications, 30000);
+  
+  // Set up click handlers
+  const notificationBell = document.getElementById('notificationBell');
+  if (notificationBell) {
+    notificationBell.addEventListener('click', toggleNotificationDropdown);
+  }
+  
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(event) {
+    const dropdown = document.getElementById('notificationDropdown');
+    const bell = document.getElementById('notificationBell');
+    
+    if (dropdown && bell && !bell.contains(event.target)) {
+      dropdown.classList.remove('show');
+    }
+  });
+}
+
+function loadNotifications() {  
+  fetch('/purchase-orders/api/notifications/')
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (data.success) {
+        updateNotificationBadge(data.unread_count);
+        renderNotifications(data.notifications);
+      } else {
+        console.error('API returned error:', data.error);
+      }
+    })
+    .catch(error => {
+      console.error('Error loading notifications:', error);
+      // Set badge to 0 on error to avoid confusion
+      updateNotificationBadge(0);
+    });
+}
+
+function updateNotificationBadge(count) {
+  const badge = document.getElementById('notificationBadge');
+  if (badge) {
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : count;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+}
+
+function renderNotifications(notifications) {
+  const container = document.getElementById('notificationsList');
+  
+  if (!container) {
+    console.error('Notifications container not found');
+    return;
+  }
+  
+  if (notifications.length === 0) {
+    container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted)">No new notifications</div>';
+    return;
+  }
+  
+  container.innerHTML = notifications.map(notification => `
+    <div class="notification-item ${notification.priority_class}" onclick="handleNotificationClick(${notification.id}, '${notification.po_detail_url}')">
+      <div class="notification-message">${notification.message}</div>
+      <div class="notification-meta">
+        ${notification.customer_name} • ${notification.time_ago}
+        <span style="float:right">$${notification.remaining_balance} remaining</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleNotificationDropdown() {
+  const dropdown = document.getElementById('notificationDropdown');
+  if (dropdown) {
+    dropdown.classList.toggle('show');
+  }
+}
+
+function handleNotificationClick(notificationId, poDetailUrl) {
+  
+  // Mark notification as read
+  markNotificationAsRead(notificationId);
+  
+  // Close dropdown
+  toggleNotificationDropdown();
+  
+  // Optionally navigate to the PO detail page
+  // window.location.href = poDetailUrl;
+}
+
+function markNotificationAsRead(notificationId) {
+  const csrfToken = getCsrfToken();
+  
+  if (!csrfToken) {
+    console.error('CSRF token not found');
+    return;
+  }
+  
+  fetch(`/purchase-orders/api/notifications/${notificationId}/read/`, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': csrfToken,
+      'Content-Type': 'application/json'
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      loadNotifications(); // Refresh notifications
+    } else {
+      console.error('Error marking notification as read:', data.error);
+    }
+  })
+  .catch(error => {
+    console.error('Error marking notification as read:', error);
+  });
+}
+
+function markAllAsRead() {
+  const csrfToken = getCsrfToken();
+  
+  if (!csrfToken) {
+    console.error('CSRF token not found');
+    return;
+  }
+  
+  fetch('/purchase-orders/api/notifications/mark-all-read/', {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': csrfToken,
+      'Content-Type': 'application/json'
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      loadNotifications(); // Refresh notifications
+      toggleNotificationDropdown(); // Close dropdown
+    } else {
+      console.error('Error marking all notifications as read:', data.error);
+    }
+  })
+  .catch(error => {
+    console.error('Error marking all notifications as read:', error);
+  });
+}
+
+function getCsrfToken() {
+    // Try multiple methods to get CSRF token
+    
+    // Method 1: From cookie
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, 10) === 'csrftoken=') {
+                cookieValue = decodeURIComponent(cookie.substring(10));
+                break;
+            }
+        }
+    }
+    
+    if (cookieValue) {
+        return cookieValue;
+    }
+    
+    // Method 2: From meta tag
+    const metaToken = document.querySelector('meta[name=csrf-token]');
+    if (metaToken) {
+        return metaToken.getAttribute('content');
+    }
+    
+    // Method 3: From input field
+    const inputToken = document.querySelector('input[name=csrfmiddlewaretoken]');
+    if (inputToken) {
+        return inputToken.value;
+    }
+    
+    console.warn('CSRF token not found');
+    return null;
+}
+
+// Initialize notifications when page loads
+document.addEventListener('DOMContentLoaded', function() {
+  initNotifications();
+});
+
+// Clean up interval when page unloads
+window.addEventListener('beforeunload', function() {
+  if (notificationInterval) {
+    clearInterval(notificationInterval);
+  }
+});
+
+// Rest of your existing functions remain the same...
+function clearFilters() {
+  window.location.href = clearFiltersUrl;
+}
+
+function viewPO(poId) {
+  fetch('/purchase-orders/api/' + poId + '/')
+    .then(response => response.json())
+    .then(data => {
+      document.getElementById('poDetailContent').innerHTML = 
+        '<div class="row">' +
+          '<div class="col-md-6">' +
+            '<h6>Basic Information</h6>' +
+            '<table class="table table-sm">' +
+              '<tr><td>PO Number:</td><td><strong>' + data.po_number + '</strong></td></tr>' +
+              '<tr><td>Customer:</td><td>' + data.customer_name + '</td></tr>' +
+              '<tr><td>Account:</td><td>' + (data.account_name || 'N/A') + '</td></tr>' +
+              '<tr><td>Status:</td><td><span class="badge bg-primary">' + data.status + '</span></td></tr>' +
+            '</table>' +
+          '</div>' +
+          '<div class="col-md-6">' +
+            '<h6>Financial Details</h6>' +
+            '<table class="table table-sm">' +
+              '<tr><td>Total Amount:</td><td>$' + data.total_amount + '</td></tr>' +
+              '<tr><td>Remaining:</td><td>$' + data.remaining_balance + '</td></tr>' +
+              '<tr><td>Utilization:</td><td>' + data.utilization_percentage + '%</td></tr>' +
+              '<tr><td>Valid From:</td><td>' + data.valid_from + '</td></tr>' +
+              '<tr><td>Valid Until:</td><td>' + data.valid_until + '</td></tr>' +
+            '</table>' +
+          '</div>' +
+        '</div>' +
+        '<div class="row mt-3">' +
+          '<div class="col-12">' +
+            '<h6>Recent Billing Runs</h6>' +
+            '<div class="table-responsive">' +
+              '<table class="table table-sm">' +
+                '<thead><tr><th>Run ID</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead>' +
+                '<tbody>' +
+                  data.recent_billing_runs.map(function(br) {
+                    return '<tr>' +
+                      '<td>' + br.run_id + '</td>' +
+                      '<td>$' + br.amount + '</td>' +
+                      '<td>' + br.billing_date + '</td>' +
+                      '<td><span class="badge bg-info">' + br.status + '</span></td>' +
+                    '</tr>';
+                  }).join('') +
+                '</tbody>' +
+              '</table>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      
+      document.getElementById('editPOLink').href = '/purchase-orders/' + poId + '/edit/';
+      new bootstrap.Modal(document.getElementById('poDetailModal')).show();
+    })
+    .catch(error => {
+      console.error('Error loading PO details:', error);
+      alert('Error loading purchase order details');
+    });
+}
+
+function duplicatePO(poId) {
+  if (confirm('Create a duplicate of this purchase order?')) {
+    const csrfToken = getCsrfToken();
+    
+    fetch('/purchase-orders/api/' + poId + '/duplicate/', {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': csrfToken,
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        alert('Purchase order duplicated successfully! New PO: ' + data.new_po_number);
+        location.reload();
+      } else {
+        alert('Error duplicating purchase order: ' + data.error);
+      }
+    })
+    .catch(error => {
+      console.error('Error duplicating PO:', error);
+      alert('Error duplicating purchase order');
+    });
+  }
+}
+
+function deletePO(poId) {
+  if (confirm('Are you sure you want to delete this purchase order? This action cannot be undone.')) {
+    const csrfToken = getCsrfToken();
+    
+    fetch('/purchase-orders/api/' + poId + '/delete/', {
+      method: 'DELETE',
+      headers: {
+        'X-CSRFToken': csrfToken,
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        alert('Purchase order deleted successfully!');
+        location.reload();
+      } else {
+        alert('Error deleting purchase order: ' + data.error);
+      }
+    })
+    .catch(error => {
+      console.error('Error deleting PO:', error);
+      alert('Error deleting purchase order');
+    });
+  }
+}
+
+// Auto-submit search on Enter
+const searchInput = document.querySelector('.po-search input');
+if (searchInput) {
+  searchInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      this.form.submit();
+    }
+  });
+}</script>
+{% endblock %}
