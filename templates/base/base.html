@@ -144,7 +144,7 @@
         <!--**********************************
             Header start
         ***********************************-->
-        <div class="header" ">
+        <div class="header" >
             <div class="header-content" >
                 <nav class="navbar navbar-expand" >
                     <div class="collapse navbar-collapse justify-content-between" >
@@ -665,7 +665,11 @@
             Content body start
         ***********************************-->
 
-        {% block content %}{% endblock %}
+        <div class="content-body default-height">
+            <div class="container-fluid">
+                {% block content %}{% endblock %}
+            </div>
+        </div>
 
         <!--**********************************
             Content body end
