@@ -342,9 +342,9 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
 
   function render(){ 
   if(ns.currentType==='dedicated') renderDedicated();
-  else if(ns.currentType==='scheduled') renderGeneric(ns.scheduledGroups,'scheduled');
-  else if(ns.currentType==='dispatch') renderGeneric(ns.dispatchGroups,'dispatch');
-  else if(ns.currentType==='projects') renderGeneric(ns.projectGroups,'projects');
+//   else if(ns.currentType==='scheduled') renderGeneric(ns.scheduledGroups,'scheduled');
+//   else if(ns.currentType==='dispatch') renderGeneric(ns.dispatchGroups,'dispatch');
+//   else if(ns.currentType==='projects') renderGeneric(ns.projectGroups,'projects');
   else if(ns.currentType==='service-rate') renderServiceRateCard();
   else renderDefault();
 }
@@ -352,84 +352,34 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
 
 
 function renderServiceRateCard() {
-  const d = ns.rateCardSample;
-
-  // Render Rate Card Info
-  const rows = `
-    <tr>
-      <td>1</td>
-      <td>${d.account_name}</td>
-      <td>${d.region}</td>
-      <td>${d.country}</td>
-      <td>${d.supplier}</td>
-      <td>${d.currency}</td>
-      <td>${d.entity}</td>
-      <td>${d.payment}</td>
-      <td>${d.status}</td>
-      <td><button class="btn small rc-view" data-viewtype="main">View</button></td>
-    </tr>
-  `;
-
-  // Render Service Rate Table
-  const serviceRows = d.service_rates.map((s, i) => `
-    <tr>
-      <td>${i + 1}</td>
-      <td>${s.category}</td>
-      <td>${s.region}</td>
-      <td>${s.rate_type}</td>
-      <td>${s.rate_value}</td>
-      <td>${s.after_hours_multiplier ?? '-'}</td>
-      <td>${s.weekend_multiplier ?? '-'}</td>
-      <td>${s.travel_charge ?? '-'}</td>
-      <td>${s.includes_travel ? '✅' : '❌'}</td>
-      <td>${s.remarks ?? '-'}</td>
-      <td><button class="btn small rc-view" data-viewtype="details">View</button></td>
-    </tr>
-  `).join('');
-
-  container.innerHTML = `
-    <h3>📋 Rate Card</h3>
-    <table>
-      <thead><tr><th>#</th><th>Customer</th><th>Region</th><th>Country</th><th>Supplier</th><th>Currency</th><th>Entity</th><th>Payment</th><th>Status</th><th>Action</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-
-    <hr style="margin:20px 0;">
-
-    <h3>🧾 Service Rate Details</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>#</th><th>Category</th><th>Region</th><th>Rate Type</th><th>Rate Value</th>
-          <th>After Hours</th><th>Weekend</th><th>Travel</th><th>Includes Travel</th><th>Remarks</th><th>Action</th>
-        </tr>
-      </thead>
-      <tbody>${serviceRows}</tbody>
-    </table>
-
-    <div style="margin-top:20px;text-align:right;">
-      <button class="btn primary" id="standardizeBtn">📤 Standardize Rate Card</button>
-    </div>
-  `;
+  const rows=filterData().map((r,i)=>{
+      const svc=ns.services[r.id].dedicated;
+      const cells=svc.map(v=>`<td style="text-align:center">${esc(v)}</td>`).join('');
+      return `<tr data-id="${r.id}">${baseCells(r,i)}${cells}<td>${r.status}</td>
+      <td class="actions"><button class="iconbtn rc-view" data-id="${r.id}">👁️</button><button class="iconbtn rc-edit" data-id="${r.id}">✏️</button><button class="iconbtn rc-del" data-id="${r.id}">🗑️</button></td></tr>`;
+    }).join('');
+    const bands=ns.dedicatedCols.map(b=>`<th colspan="2">${b}</th>`).join('');
+    const subs=ns.dedicatedCols.map(()=>`<th>With</th><th>Without</th>`).join('');
+    container.innerHTML=`<table><thead><tr>${baseCols()}${bands}<th>Status</th><th>Actions</th></tr><tr><th colspan="8"></th>${subs}<th colspan="2"></th></tr></thead><tbody>${rows}</tbody></table>`;
 
   // 📤 When "Standardize Rate Card" is clicked, show generated JSON
-  document.getElementById('standardizeBtn').onclick = () => {
-    const generated = {
-      id: d.id,
-      account_name: d.account_name,
-      currency: d.currency,
-      valid_from: d.valid_from,
-      valid_to: d.valid_to,
-      service_rates: d.service_rates,
-      contact_email: d.contact_email,
-      last_updated_by: d.last_updated_by,
-      last_updated_at: d.last_updated_at
-    };
-    modalTitle.textContent = "📤 Standardized Rate Card JSON";
-    modalBody.innerHTML = `<pre style="background:#f5f5f5;padding:10px;border-radius:6px;white-space:pre-wrap;">${JSON.stringify(generated, null, 2)}</pre>`;
-    modalBackdrop.style.display = "flex";
-    saveBtn.onclick = () => (modalBackdrop.style.display = "none");
-  };
+//   document.getElementById('standardizeBtn').onclick = () => {
+//     const generated = {
+//       id: d.id,
+//       account_name: d.account_name,
+//       currency: d.currency,
+//       valid_from: d.valid_from,
+//       valid_to: d.valid_to,
+//       service_rates: d.service_rates,
+//       contact_email: d.contact_email,
+//       last_updated_by: d.last_updated_by,
+//       last_updated_at: d.last_updated_at
+//     };
+//     modalTitle.textContent = "📤 Standardized Rate Card JSON";
+//     modalBody.innerHTML = `<pre style="background:#f5f5f5;padding:10px;border-radius:6px;white-space:pre-wrap;">${JSON.stringify(generated, null, 2)}</pre>`;
+//     modalBackdrop.style.display = "flex";
+//     saveBtn.onclick = () => (modalBackdrop.style.display = "none");
+//   };
 }
 
 
