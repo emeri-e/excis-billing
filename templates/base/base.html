@@ -64,102 +64,87 @@
     <div id="main-wrapper">
 
         <!-- Nav header start -->
-        <div class="nav-header w-100 d-lg-none"
-            style="background-color:var(--primary); display: flex; flex-direction: row; padding-inline: 5px;">
+        <div class="nav-header">
             <style>
                 .brand-logo {
                     display: flex;
                     align-items: center;
-                    text-decoration: none;
                 }
 
-                .logo-image {
-                    width: 32px;
-                    height: 32px;
-                    object-fit: contain;
+                .logo-abbr {
+                    margin-right: 10px; /* Adjust spacing as needed */
                 }
 
-                /* .logo-text {
-                    font-size: 1.5rem;
-                    font-weight: 700;
-                    color: #fff;
-                    margin-left: 10px;
-                } */
+                .logo-text {
+                    font-size: 24px; /* Adjust as needed */
+                    font-weight: bold; /* Adjust as needed */
+                    color: #ffffff; /* Adjust as needed */
+                }
 
+                /* Media query for mobile devices */
                 @media (max-width: 768px) {
                     .logo-text {
-                        display: none;
+                        display: none; /* Hide text on mobile */
                     }
                 }
 
-                .hamburger {
-                    display: flex;
-                    width: 22px;
-                    color: white;
-                    height: 40px;
-                    flex-direction: column;
-                    justify-content: center;
-                    align-items: center;
-                    background-color: black;
-                    gap: 5px;
-                    cursor: pointer;
+                /* Style when side menu is hidden */
+                .side-menu-hidden .logo-text {
+                    display: none; /* Hide text */
                 }
 
-                .hamburger .line {
-                    width: 22px;
-                    height: 2px;
-                    background-color: white;
-                    color: white;
-                    border-radius: 2px;
+                .side-menu-hidden .nav-header {
+                    justify-content: center; /* Center the logo when side menu is hidden */
                 }
-
-                /*.nav-control {
-                    width: 48px;
-                    height: 48px;
-                    transition: background-color 0.3s;
-                }
-
-                .nav-control:hover {
-                    background-color: rgba(255, 255, 255, 0.1);
-                } */
             </style>
 
-            <!-- Brand Logo -->
-            <div>
+            <a href="#" class="brand-logo">
+                <img src="{% static 'images/logo.png' %}" alt="Brand Logo" class="logo-abbr" width="40" height="40">
+                <style>
+            .logo-text {
+                color: rgb(255, 255, 255) !important;
+            }
+        </style>
 
-                <a href="{% url 'dashboard:home' %}" class="brand-logo">
-                    <img src="{% static 'images/logo.png' %}" alt="Logo" class="logo-image">
-                    <span class="logo-text">Excis</span>
-                </a>
+        <span class="logo-text">FSO</span>
 
+            </a>
+
+            <div class="brand-title">
+                <!-- Add content here if needed -->
             </div>
-            
-            <!-- Hamburger Button -->
-            <button id="menu-toggle-button" 
-                    class="nav-control d-flex justify-content-center align-items-center border-0" 
-                    style="width: 50px; height: 50px; margin-right: 40px;">
-                
-                <svg id="hamburger-icon" class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                    <line x1="3" y1="12" x2="21" y2="12"></line>
-                    <line x1="3" y1="6" x2="21" y2="6"></line>
-                    <line x1="3" y1="18" x2="21" y2="18"></line>
-                </svg>
 
-                <svg id="close-icon" class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-            </button>
-        
-
+            <div class="nav-control">
+                <div class="hamburger" id="hamburger-menu">
+                    <span class="line"></span><span class="line"></span><span class="line"></span>
+                    <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="22" y="11" width="4" height="4" rx="2" fill="#2A353A"/>
+                        <rect x="11" width="4" height="4" rx="2" fill="#2A353A"/>
+                        <rect x="22" width="4" height="4" rx="2" fill="#2A353A"/>
+                        <rect x="11" y="11" width="4" height="4" rx="2" fill="#2A353A"/>
+                        <rect x="11" y="22" width="4" height="4" rx="2" fill="#2A353A"/>
+                        <rect width="4" height="4" rx="2" fill="#2A353A"/>
+                        <rect y="11" width="4" height="4" rx="2" fill="#2A353A"/>
+                        <rect x="22" y="22" width="4" height="4" rx="2" fill="#2A353A"/>
+                        <rect y="22" width="4" height="4" rx="2" fill="#2A353A"/>
+                    </svg>
+                </div>
+            </div>
         </div>
+        <!-- Nav header end -->
 
+        <script>
+            document.getElementById('hamburger-menu').addEventListener('click', function() {
+                const mainWrapper = document.getElementById('main-wrapper');
+                mainWrapper.classList.toggle('side-menu-hidden');
+            });
+        </script>
         <!-- Nav header end -->
 
         <!--**********************************
             Header start
         ***********************************-->
-        <div class="header" style="background-color: var(--primary);">
+        <div class="header" ">
             <div class="header-content" >
                 <nav class="navbar navbar-expand" >
                     <div class="collapse navbar-collapse justify-content-between" >
@@ -446,17 +431,17 @@
 
                             <li class="nav-item">
                                 <div class="dropdown header-profile2">
-                                    <a class="nav-link ms-0" href="javascript:void(0);" role="button"
-                                        data-bs-toggle="dropdown" aria-expanded="false">
-                                        <div class="header-info2 d-flex align-items-center">
-                                            <div class="d-flex align-items-center sidebar-info">
-
-                                            </div>
-
-                                            <img src="{% static 'images/logo.png' %}" alt="">
-                                        </div>
+                                    <a id="profileDropdown" 
+                                    class="nav-link ms-0" 
+                                    href="javascript:void(0);" 
+                                    role="button">
+                                    <div class="header-info2 d-flex align-items-center">
+                                        <div class="d-flex align-items-center sidebar-info"></div>
+                                        <img src="{% static 'images/logo.png' %}" alt="">
+                                    </div>
                                     </a>
-                                    <div class="dropdown-menu dropdown-menu-end pb-0">
+
+                                    <div id="profileMenu" class="dropdown-menu dropdown-menu-end pb-0">
                                         <div class="card mb-0">
                                             <div class="card-header p-3">
                                                 <ul class="d-flex align-items-center">
@@ -564,6 +549,41 @@
                 </nav>
             </div>
         </div>
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+            const toggleBtn = document.getElementById("profileDropdown");
+            const dropdownMenu = document.getElementById("profileMenu");
+
+            toggleBtn.addEventListener("click", function () {
+                const isOpen = toggleBtn.classList.contains("show");
+
+                if (isOpen) {
+                // Close dropdown
+                toggleBtn.classList.remove("show");
+                dropdownMenu.classList.remove("show");
+                toggleBtn.setAttribute("aria-expanded", "false");
+                dropdownMenu.removeAttribute("data-bs-popper");
+                } else {
+                // Open dropdown
+                toggleBtn.classList.add("show");
+                dropdownMenu.classList.add("show");
+                toggleBtn.setAttribute("aria-expanded", "true");
+                dropdownMenu.setAttribute("data-bs-popper", "static");
+                }
+            });
+
+            // Optional: close dropdown when clicking outside
+            document.addEventListener("click", function (event) {
+                if (!toggleBtn.contains(event.target) && !dropdownMenu.contains(event.target)) {
+                toggleBtn.classList.remove("show");
+                dropdownMenu.classList.remove("show");
+                toggleBtn.setAttribute("aria-expanded", "false");
+                dropdownMenu.removeAttribute("data-bs-popper");
+                }
+            });
+            });
+        </script>
+
         <!--**********************************
             Header end
         ***********************************-->
@@ -644,11 +664,9 @@
         <!--**********************************
             Content body start
         ***********************************-->
-        <div class="content-body default-height">
-            <div class="container-fluid">
-                {% block content %}{% endblock %}
-            </div>
-        </div>
+
+        {% block content %}{% endblock %}
+
         <!--**********************************
             Content body end
         ***********************************-->

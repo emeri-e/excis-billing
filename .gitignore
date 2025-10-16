@@ -1,0 +1,6 @@
+.venv/
+
+media/
+staticfiles/
+logs/
+pickfres_billing

@@ -79,280 +79,486 @@ border-color: #3e3691;
 {% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-xl-12">
-        <div class="my-3 py-3 mx-3" style="background-color: #fff; border-radius: 20px;">
-            <div class="cards flex-row justify-content-between d-flex mx-5 mb-3 overflow-scroll" id="rcCards">
-                <div id="cardsth" class="w-100 text-center m-20 rounded text-dark active" data-type="default">📋 Rate Cards</div>
-                <div id="cardsth" class="w-100 text-center m-20 rounded text-dark" data-type="dedicated">🧑‍💻 Dedicated Services</div>
-                <div id="cardsth" class="w-100 text-center m-20 rounded text-dark" data-type="scheduled">📅 Scheduled Services</div>
-                <div id="cardsth" class="w-100 text-center m-20 rounded text-dark" data-type="dispatch">🚚 Dispatch Services</div>
-                <div id="cardsth" class="w-100 text-center m-20 rounded text-dark" data-type="projects">🏗️ Projects</div>
-            </div>
-            <div class="w-100 border"></div>
-            <div class="card-header d-flex justify-content-between flex-column align-items-center w-100">
-                <div class="d-flex justify-content-between align-items-center w-100">
-                    <div>
-                        <!-- <h4 class="card-title">Rate Card Management</h4> -->
-                        <p class="mb-0 text-muted">Manage pricing and rate structures</p>
-                    </div>
-                    <a href="{% url 'rate_cards:create' %}" class="btn btn-primary d-flex align-items-center">
-                        <i class="material-symbols-outlined me-1">add</i>
-                        Create Rate Card
-                    </a>
-                </div>
-            </div>
-        </div>
-            
-            <div class="w-100">
-                <!-- Filters -->
-                <div class="row mb-md-4 w-100 mx-3">
-                    <div class="col-md-4 w-100 d-flex **flex-row flex-column** **justify-content-center">
+<div class="content-body default-height">
+            <div class="container-fluid">
+<style>
+/* ---------- keep your original style variables ---------- */
+:root{
+  --bg:#fff;
+  --text:#000;
+  --muted:#555;
+  --line:#ddd;
+  --panel:#fafafa;
+  --chip:#f3f4f6;
+  --brand:#5335ff;
+  --btn:#f5f5f5;
+  --btn-h:#ececec;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+  color:var(--text); background:var(--bg);
+}
+.wrap{min-height:100%; display:flex; flex-direction:column}
 
-                        <!-- **********************************************************
-                         Search Bar for mobile view
-                         ********************************************************* -->
-                         <button type="button" class="d-flex w-100 border-0 bg-none d-lg-none" data-bs-toggle="modal" data-bs-target="#rateModal">
-                            <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M15.7955 15.8111L21 21M18 10.5C18 14.6421 14.6421 18 10.5 18C6.35786 18 3 14.6421 3 10.5C3 6.35786 6.35786 3 10.5 3C14.6421 3 18 6.35786 18 10.5Z" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </button>
-                         <div class="modal fade d-lg-none" id="rateModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
-                            <div class="modal-dialog **modal-fullscreen-sm-down**">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        Search: <input class="form-control form-control-md mx-1" type="text" placeholder="Search customer/country..." aria-label=".form-control-lg example">
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                            <div class="modal-title">Filter</div>
-                                            <form action="" class="d-flex flex-wrap justify-content-center align-items-center">
+/* top/title */
+.titlebar{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+.spacer{flex:1}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--btn);border:1px solid var(--line);color:var(--text);padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:600}
+.btn:hover{background:var(--btn-h)}
+.btn.primary{background:#e9e7ff;border-color:#c3b8fe}
 
-                                                <select name="customer" class="">
-                                                    <option value="">All Customers</option>
-                                                    {% for customer in customers %}
-                                                    <option value="{{ customer.id }}" {% if customer.id|stringformat:"s" == customer_filter %}selected{% endif %}>{{ customer.name }}</option>
-                                                    {% endfor %}
-                                                    </select>
+/* cards */
+.cards{display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);background:#fafafa}
+.card{flex:1;min-width:160px;padding:16px;text-align:center;border:2px solid #ddd;border-radius:10px;background:#fff;cursor:pointer;transition:.18s}
+.card:hover{border-color:var(--brand)}
+.card.active{border-color:var(--brand);background:#e9e7ff;font-weight:700}
 
-                                                    
-                                                    <select class="">
-                                                    <option selected>All Regions</option>
-                                                    <option value="1">EMEA</option>
-                                                    <option value="2">APAC</option>
-                                                    <option value="3">NA</option>
-                                                    </select>
+/* filters */
+.filters{display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);align-items:center;flex-wrap:wrap}
+.rc-input{border:1px solid var(--line);padding:8px 10px;border-radius:8px;background:#fff}
+.rc-select{border:1px solid var(--line);padding:8px 10px;border-radius:8px;background:#fff}
 
-                                                    
+/* table */
+.list{flex:1;overflow:auto;padding:12px}
+table{width:100%;border-collapse:collapse;min-width:1100px}
+thead th{position:sticky;top:0;z-index:1;text-align:left;padding:10px;background:#f3f3f3;color:#333;font-size:12px;font-weight:700;border-bottom:1px solid var(--line)}
+tbody td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:hover{background:#fafafa}
+.actions{display:flex;gap:6px}
+.iconbtn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 8px;cursor:pointer;font-size:14px}
+.iconbtn:hover{background:#eee}
+.footer{padding:12px 16px;border-top:1px solid var(--line);background:var(--panel);}
 
-                                                    <select class="">
-                                                    <option selected>All currencies</option>
-                                                    <option value="1">USD</option>
-                                                    <option value="2">EUR</option>
-                                                    <option value="3">GBP</option>
-                                                    </select>
+/* dedicated / band headers */
+thead tr.rc-band-group th{background:#102a43;color:#fff;text-align:center}
+thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-weight:600}
 
+/* modal (scoped) */
+#rcModalBackdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);z-index:9999}
+#rcModalBackdrop.show{display:flex}
+.rcModal{background:#fff;padding:18px;border-radius:10px;min-width:360px;max-width:900px;max-height:85vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,0.45)}
+.rcModal h3{margin:0 0 10px 0}
+.rcFormRow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.rcFormRow label{min-width:120px;font-weight:600}
+.rcFormRow input, .rcFormRow select {flex:1;padding:8px;border:1px solid var(--line);border-radius:6px}
+.rcModal .rcActions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.small{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
 
+  <!-- cards -->
+  <div class="cards" id="rcCards">
+    <div class="card active" data-type="default">📋 Rate Cards</div>
+    <div class="card" data-type="service-rate">🧾 Service Rate Card</div>
+    <div class="card" data-type="dedicated">🧑‍💻 Dedicated Services</div>
+    <div class="card" data-type="scheduled">📅 Scheduled Services</div>
+    <div class="card" data-type="dispatch">🚚 Dispatch Services</div>
+    <div class="card" data-type="projects">🏗️ Projects</div>
+  </div>
 
-                                                    <select class="">
-                                                    <option selected>All Suppliers</option>
-                                                    <option value="1">Vendor A</option>
-                                                    <option value="2">Vendor B</option>
-                                                    <option value="3">Vendor C</option>
-                                                </select>
-                                            </form>
-                                    </div>
-                                    <!-- <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                        <button type="button" class="btn btn-primary">Search</button>
-                                    </div> -->
-                                </div>
-                            </div>
-                        </div>
-                         
-                         <!-- **********************************************************
-                         End of search Bar for mobile view
-                         ********************************************************* -->
+  <!-- titlebar -->
+  <div class="titlebar">
+    <div class="sub small">Manage pricing by customer, region, and service type</div>
+    <div class="spacer"></div>
+    <button class="btn" id="rcNewBtn">＋ New Rate Card</button>
+  </div>
 
-                        <!-- **********************************************************
-                         Search Bar for Desktop View
-                         ********************************************************** -->
-                        <form method="get" class="d-lg-flex flex-row w-75 justify-content-center align-items-center d-none">
+  <!-- filters -->
+  <div class="filters" id="rcFilters">
+    <input id="rc_search" class="rc-input" placeholder="Search customer/ country..." />
+    <select id="rc_region" class="rc-select"><option value="">All Regions</option><option>EMEA</option><option>APAC</option><option>NA</option></select>
+    <select id="rc_currency" class="rc-select"><option value="">All Currencies</option><option>USD</option><option>EUR</option><option>GBP</option></select>
+    <select id="rc_supplier" class="rc-select"><option value="">All Suppliers</option></select>
+  </div>
 
-                            <input class="form-control form-control-md mx-1" type="text" placeholder="Search customer/country..." aria-label=".form-control-lg example">
+  <!-- table container -->
+  <div class="list" id="rcTableContainer"></div>
 
-                            <select name="customer" class="form-select mx-1" onchange="this.form.submit()">
-                                <option value="">All Customers</option>
-                                {% for customer in customers %}
-                                <option value="{{ customer.id }}" {% if customer.id|stringformat:"s" == customer_filter %}selected{% endif %}>{{ customer.name }}</option>
-                                {% endfor %}
-                            </select>
+  
+</div>
 
-
-                            <select class="form-select mx-md-1 w-sm-25" aria-label="regions">
-                            <option selected>All Regions</option>
-                            <option value="1">EMEA</option>
-                            <option value="2">APAC</option>
-                            <option value="3">NA</option>
-                            </select>
-
-
-
-                            <select class="form-select" aria-label="Currencies">
-                            <option selected>All currencies</option>
-                            <option value="1">USD</option>
-                            <option value="2">EUR</option>
-                            <option value="3">GBP</option>
-                            </select>
-
-
-
-                            <select class="form-select" aria-label="Suppliers">
-                            <option selected>All Suppliers</option>
-                            <option value="1">Vendor A</option>
-                            <option value="2">Vendor B</option>
-                            <option value="3">Vendor C</option>
-                            </select>
-
-
-                        </form>
-                        <!-- ************************************************************
-                         Send of Search Bar for Desktop View
-                         ************************************************************* -->
-                    </div>
-                    <div class="col-md-8 text-end w-100">
-                        <span class="text-muted">{{ rate_cards|length }} rate cards found</span>
-                    </div>
-                </div>
-                
-                <!-- Rate Cards Table -->
-                   <!-- Bootstrap Responsive Table Example -->
-<div class="table-container my-4">
-  <div class="table-responsive">
-    <table class="table table-striped table-hover table-bordered align-middle">
-      <thead class="overflow-scroll">
-                                <tr>
-                                    <th>#</th>
-                                    <th>Rate Card Name</th>
-                                    <th>Customer</th>
-                                    <th>Rate per Unit</th>
-                                    <th>Unit Type</th>
-                                    <th>Valid Period</th>
-                                    <th>Status</th>
-                                    <th style="width: 120px;">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="overflow-scroll">
-                                {% for rate_card in rate_cards %}
-                                <tr>
-                                    <th scope="row">{{ forloop.counter }}</th>
-                                    <td>
-                                        <div>
-                                            <strong>{{ rate_card.name }}</strong>
-                                            {% if rate_card.description %}
-                                            <br><small class="text-muted">{{ rate_card.description|truncatechars:50 }}</small>
-                                            {% endif %}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div>
-                                            <strong>{{ rate_card.customer.name }}</strong>
-                                            <br><small class="text-muted">{{ rate_card.customer.code }}</small>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <strong>${{ rate_card.rate_per_unit|floatformat:4 }}</strong>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-secondary">{{ rate_card.unit_type|title }}</span>
-                                    </td>
-                                    <td>
-                                        <div>
-                                            <strong>{{ rate_card.valid_from|date:"M d, Y" }}</strong>
-                                            <br><small class="text-muted">to {{ rate_card.valid_until|date:"M d, Y" }}</small>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        {% if rate_card.is_active %}
-                                            <span class="badge bg-success">Active</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">Inactive</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="dropdown">
-                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
-                                                    type="button" 
-                                                    data-bs-toggle="dropdown" 
-                                                    aria-expanded="false">
-                                                Actions
-                                            </button>
-                                            <ul class="dropdown-menu dropdown-menu-end">
-                                                <li>
-                                                    <a class="dropdown-item" href="#">
-                                                        <i class="material-symbols-outlined me-2">visibility</i>View Details
-                                                    </a>
-                                                </li>
-                                                <li>
-                                                    <a class="dropdown-item" href="#">
-                                                        <i class="material-symbols-outlined me-2">edit</i>Edit Rate Card
-                                                    </a>
-                                                </li>
-                                                <li>
-                                                    <a class="dropdown-item" href="#">
-                                                        <i class="material-symbols-outlined me-2">content_copy</i>Duplicate
-                                                    </a>
-                                                </li>
-                                                <li><hr class="dropdown-divider"></li>
-                                                <li>
-                                                    <a class="dropdown-item text-danger" href="#">
-                                                        <i class="material-symbols-outlined me-2">delete</i>Deactivate
-                                                    </a>
-                                                </li>
-                                            </ul>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr class="w-100">
-                                    <td colspan="8" class="text-center py-4">
-                                        <div class="text-muted">
-                                            <i class="material-symbols-outlined fs-1">sell</i>
-                                            <p class="mt-2">No rate cards found</p>
-                                            <a href="{% url 'rate_cards:create' %}" class="btn btn-primary">Create First Rate Card</a>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-    </table>
+<!-- Modal (scoped unique IDs) -->
+<div id="rcModalBackdrop" aria-hidden="true">
+  <div class="rcModal" role="dialog" aria-modal="true" aria-labelledby="rcModalTitle">
+    <h3 id="rcModalTitle">Rate Card</h3>
+    <div id="rcModalBody"></div>
+    <div class="rcActions">
+      <button class="btn" id="rcCancelBtn">Cancel</button>
+      <button class="btn primary" id="rcSaveBtn">Save</button>
+    </div>
   </div>
 </div>
 
-                <!-- Pagination -->
-                {% if rate_cards.has_other_pages %}
-                <nav class="mt-4">
-                    <ul class="pagination justify-content-center">
-                        {% if rate_cards.has_previous %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ rate_cards.previous_page_number }}{% if customer_filter %}&customer={{ customer_filter }}{% endif %}">Previous</a>
-                        </li>
-                        {% endif %}
-                        
-                        <li class="page-item active">
-                            <span class="page-link">{{ rate_cards.number }} of {{ rate_cards.paginator.num_pages }}</span>
-                        </li>
-                        
-                        {% if rate_cards.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ rate_cards.next_page_number }}{% if customer_filter %}&customer={{ customer_filter }}{% endif %}">Next</a>
-                        </li>
-                        {% endif %}
-                    </ul>
-                </nav>
-                {% endif %}
+<script>
+
+(function RateCardApp(){
+  const ns = {};
+  
+  ns.data = [
+  { id: 1, customer:'HCL Technologies', region:'EMEA', country:'Germany', supplier:'Vendor A', currency:'EUR', entity:'E1', payment:'30 Days', status:'Active' },
+  { id: 2, customer:'Cognizant', region:'APAC', country:'India', supplier:'Vendor B', currency:'USD', entity:'E2', payment:'45 Days', status:'Pending' },
+  { id: 3, customer:'TCS', region:'NA', country:'USA', supplier:'Vendor C', currency:'USD', entity:'E3', payment:'30 Days', status:'Active' },
+
+  // 🆕 Lenovo Thailand (connected to rate_card sample)
+  { id: 101, customer:'Lenovo Thailand', region:'APAC', country:'Thailand', supplier:'Vendor TH', currency:'THB', entity:'Lenovo Entity TH', payment:'30 Days', status:'Active' }
+];
+
+  ns.dedicatedCols = ['Band 0','Band 1','Band 2','Band 3','Band 4'];
+  ns.scheduledGroups = [
+    { title:'Full Day Visit (8hrs)', bands:['Band 0','Band 1','Band 2'] },
+    { title:'1/2 Day Visit (4hrs)', bands:['Band 0','Band 1','Band 2'] }
+  ];
+  ns.dispatchGroups = [
+    { title:'Dispatch Ticket (Incident)', bands:['4 hour','SBD','NBD','2 BD','3 BD','Additional Hour'] },
+    { title:'Dispatch Ticket (IMAC)', bands:['2 BD','3 BD','4 BD'] }
+  ];
+  ns.projectGroups = [
+    { title:'Short Term (Up to 3 months)', bands:['Band 0','Band 1','Band 2','Band 3','Band 4'] },
+    { title:'Long Term (more than 3 months)', bands:['Band 0','Band 1','Band 2','Band 3','Band 4'] }
+  ];
+  ns.rateCardSample = {
+  id: 101,
+  account_name: "Lenovo Thailand",
+  currency: "THB",
+  valid_from: "2025-01-01",
+  valid_to: null,
+  contact_email: "finance.th@lenovo.com",
+  last_updated_by: "billing_admin",
+  last_updated_at: "2025-10-14T12:30:00Z",
+  service_rates: [
+    {
+      category: "Dispatch",
+      region: "Bangkok",
+      rate_type: "hourly",
+      rate_value: 850,
+      after_hours_multiplier: 1.5,
+      weekend_multiplier: 2.0,
+      travel_charge: 0
+    },
+    {
+      category: "FTE",
+      region: "Thailand",
+      rate_type: "monthly",
+      rate_value: 60000,
+      remarks: "Level 2 engineer full-time placement"
+    },
+    {
+      category: "Scheduled Visit",
+      region: "Thailand",
+      rate_type: "day",
+      rate_value: 3200,
+      includes_travel: true
+    }
+  ]
+};
+
+  ns.services = {};
+  function initServiceValues(){
+    ns.data.forEach(rec=>{
+      ns.services[rec.id] = {
+        dedicated: ns.dedicatedCols.flatMap((b,i)=>[`$${26000+i*2000}`, `$${23000+i*1800}`]),
+        scheduled: ns.scheduledGroups.flatMap(g=>g.bands.map((b,i)=>`$${300+i*20}`)),
+        dispatch: ns.dispatchGroups.flatMap(g=>g.bands.map((b,i)=>`$${100+i*50}`)),
+        projects: ns.projectGroups.flatMap(g=>g.bands.map((b,i)=>`$${5000+i*500}`))
+      };
+    });
+  }
+  initServiceValues();
+
+  // DOM
+  const container = document.getElementById('rcTableContainer');
+  const cards = document.querySelectorAll('#rcCards .card');
+  const modalBackdrop = document.getElementById('rcModalBackdrop');
+  const modalTitle = document.getElementById('rcModalTitle');
+  const modalBody = document.getElementById('rcModalBody');
+  const saveBtn = document.getElementById('rcSaveBtn');
+  const cancelBtn = document.getElementById('rcCancelBtn');
+  const searchEl = document.getElementById('rc_search');
+  const regionEl = document.getElementById('rc_region');
+  const currencyEl = document.getElementById('rc_currency');
+  const supplierEl = document.getElementById('rc_supplier');
+  const newBtn = document.getElementById('rcNewBtn');
+  ns.currentType='default';
+
+  // Utils
+  const esc = s=>String(s??'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+  const uniqueSuppliers=()=>[...new Set(ns.data.map(d=>d.supplier))];
+  function refreshSupplierFilter(){
+    supplierEl.innerHTML='<option value="">All Suppliers</option>'+uniqueSuppliers().map(s=>`<option>${s}</option>`).join('');
+  }
+  function filterData(){
+    const q=(searchEl.value||'').toLowerCase(),r=regionEl.value,c=currencyEl.value,s=supplierEl.value;
+    return ns.data.filter(d=>
+      (!r||d.region===r)&&(!c||d.currency===c)&&(!s||d.supplier===s)&&(!q||[d.customer,d.country,d.supplier].some(x=>x.toLowerCase().includes(q)))
+    );
+  }
+
+  const baseCols=()=>`<th>#</th><th>Customer</th><th>Region</th><th>Country</th><th>Supplier</th><th>Currency</th><th>Entity</th><th>Payment</th>`;
+  const baseCells=(r,i)=>`<td>${i+1}</td><td>${esc(r.customer)}</td><td>${esc(r.region)}</td><td>${esc(r.country)}</td><td>${esc(r.supplier)}</td><td>${esc(r.currency)}</td><td>${esc(r.entity)}</td><td>${esc(r.payment)}</td>`;
+
+  // Renderers
+  function renderDefault(){
+    const rows=filterData().map((r,i)=>`
+      <tr data-id="${r.id}">
+        ${baseCells(r,i)}
+        <td>${r.status}</td>
+        <td class="actions">
+          <button class="iconbtn rc-view" data-id="${r.id}">👁️</button>
+          <button class="iconbtn rc-edit" data-id="${r.id}">✏️</button>
+          <button class="iconbtn rc-del" data-id="${r.id}">🗑️</button>
+        </td>
+      </tr>`).join('');
+    container.innerHTML=`<table><thead><tr>${baseCols()}<th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  function renderGeneric(groups,key){
+    const rows=filterData().map((r,i)=>{
+      const svc=ns.services[r.id][key];
+      const cells=svc.map(v=>`<td style="text-align:center">${esc(v)}</td>`).join('');
+      return `<tr data-id="${r.id}">${baseCells(r,i)}${cells}<td>${r.status}</td>
+      <td class="actions"><button class="iconbtn rc-view" data-id="${r.id}">👁️</button><button class="iconbtn rc-edit" data-id="${r.id}">✏️</button><button class="iconbtn rc-del" data-id="${r.id}">🗑️</button></td></tr>`;
+    }).join('');
+    const ths=groups.map(g=>`<th colspan="${g.bands.length}" style="text-align:center">${g.title}</th>`).join('');
+    const subs=groups.map(g=>g.bands.map(b=>`<th>${b}</th>`).join('')).join('');
+    container.innerHTML=`<table><thead><tr>${baseCols()}${ths}<th>Status</th><th>Actions</th></tr><tr><th colspan="8"></th>${subs}<th colspan="2"></th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  function renderDedicated(){
+    const rows=filterData().map((r,i)=>{
+      const svc=ns.services[r.id].dedicated;
+      const cells=svc.map(v=>`<td style="text-align:center">${esc(v)}</td>`).join('');
+      return `<tr data-id="${r.id}">${baseCells(r,i)}${cells}<td>${r.status}</td>
+      <td class="actions"><button class="iconbtn rc-view" data-id="${r.id}">👁️</button><button class="iconbtn rc-edit" data-id="${r.id}">✏️</button><button class="iconbtn rc-del" data-id="${r.id}">🗑️</button></td></tr>`;
+    }).join('');
+    const bands=ns.dedicatedCols.map(b=>`<th colspan="2">${b}</th>`).join('');
+    const subs=ns.dedicatedCols.map(()=>`<th>With</th><th>Without</th>`).join('');
+    container.innerHTML=`<table><thead><tr>${baseCols()}${bands}<th>Status</th><th>Actions</th></tr><tr><th colspan="8"></th>${subs}<th colspan="2"></th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  function render(){ 
+  if(ns.currentType==='dedicated') renderDedicated();
+  else if(ns.currentType==='scheduled') renderGeneric(ns.scheduledGroups,'scheduled');
+  else if(ns.currentType==='dispatch') renderGeneric(ns.dispatchGroups,'dispatch');
+  else if(ns.currentType==='projects') renderGeneric(ns.projectGroups,'projects');
+  else if(ns.currentType==='service-rate') renderServiceRateCard();
+  else renderDefault();
+}
+
+
+
+function renderServiceRateCard() {
+  const d = ns.rateCardSample;
+
+  // Render Rate Card Info
+  const rows = `
+    <tr>
+      <td>1</td>
+      <td>${d.account_name}</td>
+      <td>${d.region}</td>
+      <td>${d.country}</td>
+      <td>${d.supplier}</td>
+      <td>${d.currency}</td>
+      <td>${d.entity}</td>
+      <td>${d.payment}</td>
+      <td>${d.status}</td>
+      <td><button class="btn small rc-view" data-viewtype="main">View</button></td>
+    </tr>
+  `;
+
+  // Render Service Rate Table
+  const serviceRows = d.service_rates.map((s, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${s.category}</td>
+      <td>${s.region}</td>
+      <td>${s.rate_type}</td>
+      <td>${s.rate_value}</td>
+      <td>${s.after_hours_multiplier ?? '-'}</td>
+      <td>${s.weekend_multiplier ?? '-'}</td>
+      <td>${s.travel_charge ?? '-'}</td>
+      <td>${s.includes_travel ? '✅' : '❌'}</td>
+      <td>${s.remarks ?? '-'}</td>
+      <td><button class="btn small rc-view" data-viewtype="details">View</button></td>
+    </tr>
+  `).join('');
+
+  container.innerHTML = `
+    <h3>📋 Rate Card</h3>
+    <table>
+      <thead><tr><th>#</th><th>Customer</th><th>Region</th><th>Country</th><th>Supplier</th><th>Currency</th><th>Entity</th><th>Payment</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <hr style="margin:20px 0;">
+
+    <h3>🧾 Service Rate Details</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>Category</th><th>Region</th><th>Rate Type</th><th>Rate Value</th>
+          <th>After Hours</th><th>Weekend</th><th>Travel</th><th>Includes Travel</th><th>Remarks</th><th>Action</th>
+        </tr>
+      </thead>
+      <tbody>${serviceRows}</tbody>
+    </table>
+
+    <div style="margin-top:20px;text-align:right;">
+      <button class="btn primary" id="standardizeBtn">📤 Standardize Rate Card</button>
+    </div>
+  `;
+
+  // 📤 When "Standardize Rate Card" is clicked, show generated JSON
+  document.getElementById('standardizeBtn').onclick = () => {
+    const generated = {
+      id: d.id,
+      account_name: d.account_name,
+      currency: d.currency,
+      valid_from: d.valid_from,
+      valid_to: d.valid_to,
+      service_rates: d.service_rates,
+      contact_email: d.contact_email,
+      last_updated_by: d.last_updated_by,
+      last_updated_at: d.last_updated_at
+    };
+    modalTitle.textContent = "📤 Standardized Rate Card JSON";
+    modalBody.innerHTML = `<pre style="background:#f5f5f5;padding:10px;border-radius:6px;white-space:pre-wrap;">${JSON.stringify(generated, null, 2)}</pre>`;
+    modalBackdrop.style.display = "flex";
+    saveBtn.onclick = () => (modalBackdrop.style.display = "none");
+  };
+}
+
+
+
+
+  // ---------- MODAL ----------
+  function openModal(mode,id){
+    const rec=id?ns.data.find(x=>x.id===id):{id:Date.now(),customer:'',region:'',country:'',supplier:'',currency:'USD',entity:'',payment:'',status:'Active'};
+    const svcType=ns.currentType;
+    modalTitle.textContent=mode==='edit'?'Edit Record':mode==='view'?'View Record':'New Rate Card';
+    const readonly=mode==='view'?'readonly':'';
+    let html=`
+    <div class="rcFormRow"><label>Customer</label><input id="rcf_customer" value="${esc(rec.customer)}" ${readonly}></div>
+    <div class="rcFormRow"><label>Region</label><input id="rcf_region" value="${esc(rec.region)}" ${readonly}></div>
+    <div class="rcFormRow"><label>Country</label><input id="rcf_country" value="${esc(rec.country)}" ${readonly}></div>
+    <div class="rcFormRow"><label>Supplier</label><input id="rcf_supplier" value="${esc(rec.supplier)}" ${readonly}></div>
+    <div class="rcFormRow"><label>Currency</label><input id="rcf_currency" value="${esc(rec.currency)}" ${readonly}></div>
+    <div class="rcFormRow"><label>Entity</label><input id="rcf_entity" value="${esc(rec.entity)}" ${readonly}></div>
+    <div class="rcFormRow"><label>Payment</label><input id="rcf_payment" value="${esc(rec.payment)}" ${readonly}></div>
+    <div class="rcFormRow"><label>Status</label><input id="rcf_status" value="${esc(rec.status)}" ${readonly}></div>`;
+
+    if(svcType!=='default'){
+      html+=`<div style="font-weight:700;margin:10px 0;">${svcType.toUpperCase()} VALUES</div>`;
+      const svc=ns.services[rec.id]||{};
+      let i=0;
+      if(svcType==='dedicated'){
+        ns.dedicatedCols.forEach(b=>{
+          html+=`<div class="rcFormRow"><label>${b} (With)</label><input id="rcf_ded_${i}" value="${esc(svc.dedicated?.[i]||'')}" ${readonly}></div>`;
+          i++;
+          html+=`<div class="rcFormRow"><label>${b} (Without)</label><input id="rcf_ded_${i}" value="${esc(svc.dedicated?.[i]||'')}" ${readonly}></div>`;
+          i++;
+        });
+      } else {
+        const groups=(svcType==='scheduled')?ns.scheduledGroups:(svcType==='dispatch')?ns.dispatchGroups:ns.projectGroups;
+        groups.forEach(g=>g.bands.forEach(b=>{
+          html+=`<div class="rcFormRow"><label>${g.title} - ${b}</label><input id="rcf_svc_${i}" value="${esc(svc[svcType]?.[i]||'')}" ${readonly}></div>`;
+          i++;
+        }));
+      }
+    }
+    modalBody.innerHTML=html;
+    modalBackdrop.style.display='flex';
+
+    // Save handler (edit/new)
+    saveBtn.onclick=()=>{
+      if(mode==='view'){modalBackdrop.style.display='none';return;}
+      rec.customer=document.getElementById('rcf_customer').value;
+      rec.region=document.getElementById('rcf_region').value;
+      rec.country=document.getElementById('rcf_country').value;
+      rec.supplier=document.getElementById('rcf_supplier').value;
+      rec.currency=document.getElementById('rcf_currency').value;
+      rec.entity=document.getElementById('rcf_entity').value;
+      rec.payment=document.getElementById('rcf_payment').value;
+      rec.status=document.getElementById('rcf_status').value;
+      if(!id) ns.data.push(rec);
+
+      if(svcType!=='default'){
+        const svc=ns.services[rec.id]||{};
+        if(svcType==='dedicated'){
+          svc.dedicated=[];
+          for(let i=0;i<ns.dedicatedCols.length*2;i++){
+            svc.dedicated[i]=document.getElementById(`rcf_ded_${i}`).value;
+          }
+        } else {
+          const groups=(svcType==='scheduled')?ns.scheduledGroups:(svcType==='dispatch')?ns.dispatchGroups:ns.projectGroups;
+          svc[svcType]=[];
+          let i=0;groups.forEach(g=>g.bands.forEach(()=>{
+            svc[svcType][i]=document.getElementById(`rcf_svc_${i}`).value;
+            i++;
+          }));
+        }
+        ns.services[rec.id]=svc;
+      }
+      modalBackdrop.style.display='none';
+      refreshSupplierFilter();
+      render();
+    };
+    cancelBtn.onclick=()=>modalBackdrop.style.display='none';
+  }
+
+  function deleteRec(id){
+    if(!confirm('Delete this record?'))return;
+    ns.data=ns.data.filter(x=>x.id!==id);
+    delete ns.services[id];
+    render();
+  }
+
+  // Events
+  container.addEventListener('click', e => {
+  const id = +e.target.dataset.id;
+  const viewType = e.target.dataset.viewtype;
+
+  if (e.target.classList.contains('rc-view')) {
+    if (viewType === 'details') {
+      const d = ns.rateCardSample;
+      modalTitle.textContent = "Service Rate Card Details";
+      modalBody.innerHTML = `
+        <div><b>${d.account_name}</b></div>
+        <div>Currency: ${d.currency}</div>
+        <div>Valid From: ${d.valid_from}</div>
+        <div>Valid To: ${d.valid_to ?? '—'}</div>
+        <div>Contact Email: ${d.contact_email}</div>
+        <div>Last Updated By: ${d.last_updated_by}</div>
+        <div>Last Updated At: ${new Date(d.last_updated_at).toLocaleString()}</div>
+      `;
+      modalBackdrop.style.display = 'flex';
+      saveBtn.onclick = () => (modalBackdrop.style.display = 'none');
+    } else {
+      openModal('view', id);
+    }
+  }
+
+  if (e.target.classList.contains('rc-edit')) openModal('edit', id);
+  if (e.target.classList.contains('rc-del')) deleteRec(id);
+});
+
+  cards.forEach(c=>c.onclick=()=>{cards.forEach(x=>x.classList.remove('active'));c.classList.add('active');ns.currentType=c.dataset.type;render();});
+  [searchEl,regionEl,currencyEl,supplierEl].forEach(el=>el.oninput=render);
+  newBtn.onclick=()=>openModal('new');
+
+  refreshSupplierFilter();
+  render();
+})();
+</script>
+
+
+
+
+
             </div>
         </div>
-    </div>
-</div>
 {% endblock %}
