@@ -446,7 +446,7 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
     // If there are no categories discovered at all, show a single Service Rates placeholder column
     let headerHtml;
     if (categoryOrder.length === 0) {
-      headerHtml = `<tr>${baseCols()}<th>Status</th><th>Actions</th><th>Service Rates</th></tr>`;
+      headerHtml = `<tr>${baseCols()}<th>Status</th><th>Actions</th></tr>`;
     } else {
       headerHtml = `<tr>${baseCols()}${topHeaders}<th>Status</th><th>Actions</th></tr>
                     <tr><th colspan="8"></th>${subHeaders}<th colspan="2"></th></tr>`;
