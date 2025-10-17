@@ -194,82 +194,110 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
 </div>
 
 <script>
-
 (function RateCardApp(){
   const ns = {};
-  
-  ns.data = [
-  { id: 1, customer:'HCL Technologies', region:'EMEA', country:'Germany', supplier:'Vendor A', currency:'EUR', entity:'E1', payment:'30 Days', status:'Active' },
-  { id: 2, customer:'Cognizant', region:'APAC', country:'India', supplier:'Vendor B', currency:'USD', entity:'E2', payment:'45 Days', status:'Pending' },
-  { id: 3, customer:'TCS', region:'NA', country:'USA', supplier:'Vendor C', currency:'USD', entity:'E3', payment:'30 Days', status:'Active' },
-
-  // 🆕 Lenovo Thailand (connected to rate_card sample)
-  { id: 101, customer:'Lenovo Thailand', region:'APAC', country:'Thailand', supplier:'Vendor TH', currency:'THB', entity:'Lenovo Entity TH', payment:'30 Days', status:'Active' }
-];
-
-  ns.dedicatedCols = ['Band 0','Band 1','Band 2','Band 3','Band 4'];
-  ns.scheduledGroups = [
-    { title:'Full Day Visit (8hrs)', bands:['Band 0','Band 1','Band 2'] },
-    { title:'1/2 Day Visit (4hrs)', bands:['Band 0','Band 1','Band 2'] }
-  ];
-  ns.dispatchGroups = [
-    { title:'Dispatch Ticket (Incident)', bands:['4 hour','SBD','NBD','2 BD','3 BD','Additional Hour'] },
-    { title:'Dispatch Ticket (IMAC)', bands:['2 BD','3 BD','4 BD'] }
-  ];
-  ns.projectGroups = [
-    { title:'Short Term (Up to 3 months)', bands:['Band 0','Band 1','Band 2','Band 3','Band 4'] },
-    { title:'Long Term (more than 3 months)', bands:['Band 0','Band 1','Band 2','Band 3','Band 4'] }
-  ];
-  ns.rateCardSample = {
-  id: 101,
-  account_name: "Lenovo Thailand",
-  currency: "THB",
-  valid_from: "2025-01-01",
-  valid_to: null,
-  contact_email: "finance.th@lenovo.com",
-  last_updated_by: "billing_admin",
-  last_updated_at: "2025-10-14T12:30:00Z",
-  service_rates: [
-    {
-      category: "Dispatch",
-      region: "Bangkok",
-      rate_type: "hourly",
-      rate_value: 850,
-      after_hours_multiplier: 1.5,
-      weekend_multiplier: 2.0,
-      travel_charge: 0
-    },
-    {
-      category: "FTE",
-      region: "Thailand",
-      rate_type: "monthly",
-      rate_value: 60000,
-      remarks: "Level 2 engineer full-time placement"
-    },
-    {
-      category: "Scheduled Visit",
-      region: "Thailand",
-      rate_type: "day",
-      rate_value: 3200,
-      includes_travel: true
-    }
-  ]
-};
-
   ns.services = {};
-  function initServiceValues(){
-    ns.data.forEach(rec=>{
-      ns.services[rec.id] = {
-        dedicated: ns.dedicatedCols.flatMap((b,i)=>[`$${26000+i*2000}`, `$${23000+i*1800}`]),
-        scheduled: ns.scheduledGroups.flatMap(g=>g.bands.map((b,i)=>`$${300+i*20}`)),
-        dispatch: ns.dispatchGroups.flatMap(g=>g.bands.map((b,i)=>`$${100+i*50}`)),
-        projects: ns.projectGroups.flatMap(g=>g.bands.map((b,i)=>`$${5000+i*500}`))
-      };
-    });
-  }
-  initServiceValues();
 
-  // DOM
+  // CSRF helper
+  function getCookie(name) {
+    const v = document.cookie.split('; ').find(row => row.startsWith(name + '='));
+    return v ? decodeURIComponent(v.split('=')[1]) : null;
+  }
+  const csrftoken = getCookie('csrftoken');
+
+  // Endpoints (adjust if you included app_name in urls)
+  const API_BASE = '/rate-cards/api';
+
+  // Fetch initial ratecards from backend (prefetch all service_rates)
+  async function loadRateCards(){
+    const res = await fetch(`${API_BASE}/ratecards/`);
+    const j = await res.json();
+    ns.data = j.results || [];
+
+    // set placeholders
+    ns.data.forEach(r => ns.services[r.id] = { service_rates: [], dedicated: [], scheduled: [], dispatch: [], projects: [] });
+
+    // build array of fetch promises
+    const promises = ns.data.map(async r => {
+      try {
+        const svc = await loadServiceRates(r.id);
+        ns.services[r.id].service_rates = svc;
+      } catch (err) {
+        console.warn('Failed to load service rates for', r.id, err);
+        ns.services[r.id].service_rates = [];
+      }
+    });
+
+    // wait for all to finish (you can remove the await if you want incremental behavior)
+    await Promise.all(promises);
+
+    render();
+    refreshSupplierFilter();
+  }
+
+  // same loadServiceRates as Option A
+  async function loadServiceRates(ratecard_id){
+    const res = await fetch(`${API_BASE}/ratecards/${ratecard_id}/service_rates/`);
+    if (!res.ok) {
+      throw new Error(`service_rates fetch failed: ${res.status}`);
+    }
+    const j = await res.json();
+    return j.results || [];
+  }
+
+
+  // CRUD helpers
+  async function createRateCard(payload){
+    const body = new URLSearchParams(payload);
+    const res = await fetch(`${API_BASE}/ratecards/create/`, {
+      method: 'POST',
+      headers: {'X-CSRFToken': csrftoken},
+      body
+    });
+    return await res.json();
+  }
+  async function updateRateCard(id, payload){
+    const res = await fetch(`${API_BASE}/ratecards/${id}/update/`, {
+      method: 'POST',
+      headers: {'X-CSRFToken': csrftoken},
+      body: new URLSearchParams(payload)
+    });
+    return await res.json();
+  }
+  async function deleteRateCard(id){
+    const res = await fetch(`${API_BASE}/ratecards/${id}/delete/`, {
+      method: 'POST',
+      headers: {'X-CSRFToken': csrftoken},
+    });
+    return await res.json();
+  }
+  // ServiceRate CRUD helpers (uses csrftoken and API_BASE from your script)
+  async function createServiceRate(payload){
+    const res = await fetch(`${API_BASE}/service_rate/create/`, {
+      method: 'POST',
+      headers: {'X-CSRFToken': csrftoken},
+      body: new URLSearchParams(payload)
+    });
+    return await res.json();
+  }
+  async function updateServiceRate(id, payload){
+    const res = await fetch(`${API_BASE}/service_rate/${id}/update/`, {
+      method: 'POST',
+      headers: {'X-CSRFToken': csrftoken},
+      body: new URLSearchParams(payload)
+    });
+    return await res.json();
+  }
+  async function deleteServiceRateAPI(id){
+    const res = await fetch(`${API_BASE}/service_rate/${id}/delete/`, {
+      method: 'POST',
+      headers: {'X-CSRFToken': csrftoken},
+    });
+    return await res.json();
+  }
+
+
+  // --- Keep your UI wiring but use ns.data from backend
   const container = document.getElementById('rcTableContainer');
   const cards = document.querySelectorAll('#rcCards .card');
   const modalBackdrop = document.getElementById('rcModalBackdrop');
@@ -282,227 +310,436 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
   const currencyEl = document.getElementById('rc_currency');
   const supplierEl = document.getElementById('rc_supplier');
   const newBtn = document.getElementById('rcNewBtn');
-  ns.currentType='default';
 
-  // Utils
+  ns.currentType='default';
   const esc = s=>String(s??'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
-  const uniqueSuppliers=()=>[...new Set(ns.data.map(d=>d.supplier))];
+
+  function uniqueSuppliers(){ return [...new Set((ns.data||[]).map(d=>d.supplier))]; }
   function refreshSupplierFilter(){
-    supplierEl.innerHTML='<option value="">All Suppliers</option>'+uniqueSuppliers().map(s=>`<option>${s}</option>`).join('');
+    supplierEl.innerHTML = '<option value="">All Suppliers</option>' + uniqueSuppliers().map(s => `<option>${esc(s)}</option>`).join('');
   }
   function filterData(){
-    const q=(searchEl.value||'').toLowerCase(),r=regionEl.value,c=currencyEl.value,s=supplierEl.value;
-    return ns.data.filter(d=>
-      (!r||d.region===r)&&(!c||d.currency===c)&&(!s||d.supplier===s)&&(!q||[d.customer,d.country,d.supplier].some(x=>x.toLowerCase().includes(q)))
+    const q=(searchEl.value||'').toLowerCase(), r=regionEl.value, c=currencyEl.value, s=supplierEl.value;
+    return (ns.data||[]).filter(d=>
+      (!r||d.region===r) && (!c||d.currency===c) && (!s||d.supplier===s) &&
+      (!q || [d.customer, d.country, d.supplier].some(x => (x||'').toLowerCase().includes(q)))
     );
   }
 
   const baseCols=()=>`<th>#</th><th>Customer</th><th>Region</th><th>Country</th><th>Supplier</th><th>Currency</th><th>Entity</th><th>Payment</th>`;
   const baseCells=(r,i)=>`<td>${i+1}</td><td>${esc(r.customer)}</td><td>${esc(r.region)}</td><td>${esc(r.country)}</td><td>${esc(r.supplier)}</td><td>${esc(r.currency)}</td><td>${esc(r.entity)}</td><td>${esc(r.payment)}</td>`;
 
-  // Renderers
   function renderDefault(){
-    const rows=filterData().map((r,i)=>`
+    const rows = filterData().map((r,i) => `
       <tr data-id="${r.id}">
         ${baseCells(r,i)}
         <td>${r.status}</td>
+        <td class="actions">
+          <button class="iconbtn rc-view" data-id="${r.id}" data-viewtype="details">👁️</button>
+          <button class="iconbtn rc-edit" data-id="${r.id}">✏️</button>
+          <button class="iconbtn rc-del" data-id="${r.id}">🗑️</button>
+        </td>
+      </tr>`).join('');
+    container.innerHTML = `<table><thead><tr>${baseCols()}<th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  function render(){ 
+    if(ns.currentType === 'service-rate') {
+      // show service-rate representation (you can alter to match your layout)
+      renderServiceRateCard();
+    } else {
+      renderDefault();
+    }
+  }
+
+  function renderServiceRateCard() {
+    // Helper: get service_rates array for a ratecard (may be undefined)
+    const getSvcList = id => (ns.services[id] && ns.services[id].service_rates) ? ns.services[id].service_rates : [];
+
+    // Build the global category -> set(types) map from currently-filtered rows (so headers reflect visible data)
+    const rowsData = filterData();
+    const categoryOrder = []; // preserve order if you have ns.dedicatedCols fallback
+    const categoryTypes = {}; // { category: Set(types) }
+
+    // Prefer ordering from ns.dedicatedCols if it exists and matches; else discover from data
+    const knownOrder = Array.isArray(ns.dedicatedCols) && ns.dedicatedCols.length ? ns.dedicatedCols.slice() : null;
+
+    rowsData.forEach(r => {
+      const svc = getSvcList(r.id);
+      svc.forEach(s => {
+        const cat = String(s.category ?? '—');
+        const t = String(s.rate_type ?? '—');
+        if (!categoryTypes[cat]) categoryTypes[cat] = new Set();
+        categoryTypes[cat].add(t);
+        if (!categoryOrder.includes(cat)) categoryOrder.push(cat);
+      });
+    });
+
+    // If we have a knownOrder (e.g. configured categories) merge it so configured items appear first
+    if (knownOrder) {
+      // include knownOrder items first, then append any discovered ones not in knownOrder
+      const merged = [];
+      knownOrder.forEach(k => { if (categoryOrder.includes(k)) merged.push(k); });
+      categoryOrder.forEach(c => { if (!merged.includes(c)) merged.push(c); });
+      // also include any knownOrder items missing entirely (so UI shows column headers even if empty)
+      knownOrder.forEach(k => { if (!merged.includes(k)) merged.push(k); });
+      categoryOrder.length = 0;
+      categoryOrder.push(...merged);
+      // ensure categoryTypes has Sets for knownOrder entries (so we can render headers even if empty)
+      knownOrder.forEach(k => { if (!categoryTypes[k]) categoryTypes[k] = new Set(); });
+    }
+
+    // Build header HTML
+    const topHeaders = categoryOrder.map(cat => {
+      const types = Array.from(categoryTypes[cat] || []);
+      const colspan = Math.max(1, types.length || 1);
+      return `<th colspan="${colspan}" style="text-align:center">${esc(cat)}</th>`;
+    }).join('');
+
+    const subHeaders = categoryOrder.map(cat => {
+      const types = Array.from(categoryTypes[cat] || []);
+      if (types.length === 0) return `<th>—</th>`; // placeholder if no types discovered
+      return types.map(t => `<th>${esc(t)}</th>`).join('');
+    }).join('');
+
+    // Now rows: for every visible ratecard, produce a cell for each category/type combo (in same order)
+    const rowsHtml = rowsData.map((r, idx) => {
+      const svc = getSvcList(r.id);
+      // index service rates by (category -> type -> service)
+      const idxMap = {};
+      svc.forEach(s => {
+        const cat = String(s.category ?? '—');
+        const t = String(s.rate_type ?? '—');
+        idxMap[cat] = idxMap[cat] || {};
+        // if multiple entries exist for same cat+type, prefer the first — change to aggregation if needed
+        if (idxMap[cat][t] === undefined) idxMap[cat][t] = s;
+      });
+
+      // produce cells in same ordering as headers
+      const cells = categoryOrder.map(cat => {
+        const types = Array.from(categoryTypes[cat] || []);
+        if (types.length === 0) {
+          // show a single placeholder cell if category has no defined types
+          const s = idxMap[cat] ? (Object.values(idxMap[cat])[0]) : null;
+          const val = s ? String(s.rate_value ?? '—') : '—';
+          return `<td style="text-align:center">${esc(val)}</td>`;
+        }
+        return types.map(t => {
+          const s = (idxMap[cat] && idxMap[cat][t]) ? idxMap[cat][t] : null;
+          const val = s ? String(s.rate_value ?? '—') : '—';
+          return `<td style="text-align:center">${esc(val)}</td>`;
+        }).join('');
+      }).join('');
+
+      return `<tr data-id="${r.id}">
+        ${baseCells(r, idx)}
+        ${cells}
+        <td>${esc(r.status)}</td>
         <td class="actions">
           <button class="iconbtn rc-view" data-id="${r.id}">👁️</button>
           <button class="iconbtn rc-edit" data-id="${r.id}">✏️</button>
           <button class="iconbtn rc-del" data-id="${r.id}">🗑️</button>
         </td>
-      </tr>`).join('');
-    container.innerHTML=`<table><thead><tr>${baseCols()}<th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
-  }
-
-  function renderGeneric(groups,key){
-    const rows=filterData().map((r,i)=>{
-      const svc=ns.services[r.id][key];
-      const cells=svc.map(v=>`<td style="text-align:center">${esc(v)}</td>`).join('');
-      return `<tr data-id="${r.id}">${baseCells(r,i)}${cells}<td>${r.status}</td>
-      <td class="actions"><button class="iconbtn rc-view" data-id="${r.id}">👁️</button><button class="iconbtn rc-edit" data-id="${r.id}">✏️</button><button class="iconbtn rc-del" data-id="${r.id}">🗑️</button></td></tr>`;
+      </tr>`;
     }).join('');
-    const ths=groups.map(g=>`<th colspan="${g.bands.length}" style="text-align:center">${g.title}</th>`).join('');
-    const subs=groups.map(g=>g.bands.map(b=>`<th>${b}</th>`).join('')).join('');
-    container.innerHTML=`<table><thead><tr>${baseCols()}${ths}<th>Status</th><th>Actions</th></tr><tr><th colspan="8"></th>${subs}<th colspan="2"></th></tr></thead><tbody>${rows}</tbody></table>`;
-  }
 
-  function renderDedicated(){
-    const rows=filterData().map((r,i)=>{
-      const svc=ns.services[r.id].dedicated;
-      const cells=svc.map(v=>`<td style="text-align:center">${esc(v)}</td>`).join('');
-      return `<tr data-id="${r.id}">${baseCells(r,i)}${cells}<td>${r.status}</td>
-      <td class="actions"><button class="iconbtn rc-view" data-id="${r.id}">👁️</button><button class="iconbtn rc-edit" data-id="${r.id}">✏️</button><button class="iconbtn rc-del" data-id="${r.id}">🗑️</button></td></tr>`;
-    }).join('');
-    const bands=ns.dedicatedCols.map(b=>`<th colspan="2">${b}</th>`).join('');
-    const subs=ns.dedicatedCols.map(()=>`<th>With</th><th>Without</th>`).join('');
-    container.innerHTML=`<table><thead><tr>${baseCols()}${bands}<th>Status</th><th>Actions</th></tr><tr><th colspan="8"></th>${subs}<th colspan="2"></th></tr></thead><tbody>${rows}</tbody></table>`;
-  }
-
-  function render(){ 
-  if(ns.currentType==='dedicated') renderDedicated();
-//   else if(ns.currentType==='scheduled') renderGeneric(ns.scheduledGroups,'scheduled');
-//   else if(ns.currentType==='dispatch') renderGeneric(ns.dispatchGroups,'dispatch');
-//   else if(ns.currentType==='projects') renderGeneric(ns.projectGroups,'projects');
-  else if(ns.currentType==='service-rate') renderServiceRateCard();
-  else renderDefault();
-}
-
-
-
-function renderServiceRateCard() {
-  const rows=filterData().map((r,i)=>{
-      const svc=ns.services[r.id].dedicated;
-      const cells=svc.map(v=>`<td style="text-align:center">${esc(v)}</td>`).join('');
-      return `<tr data-id="${r.id}">${baseCells(r,i)}${cells}<td>${r.status}</td>
-      <td class="actions"><button class="iconbtn rc-view" data-id="${r.id}">👁️</button><button class="iconbtn rc-edit" data-id="${r.id}">✏️</button><button class="iconbtn rc-del" data-id="${r.id}">🗑️</button></td></tr>`;
-    }).join('');
-    const bands=ns.dedicatedCols.map(b=>`<th colspan="2">${b}</th>`).join('');
-    const subs=ns.dedicatedCols.map(()=>`<th>With</th><th>Without</th>`).join('');
-    container.innerHTML=`<table><thead><tr>${baseCols()}${bands}<th>Status</th><th>Actions</th></tr><tr><th colspan="8"></th>${subs}<th colspan="2"></th></tr></thead><tbody>${rows}</tbody></table>`;
-
-  // 📤 When "Standardize Rate Card" is clicked, show generated JSON
-//   document.getElementById('standardizeBtn').onclick = () => {
-//     const generated = {
-//       id: d.id,
-//       account_name: d.account_name,
-//       currency: d.currency,
-//       valid_from: d.valid_from,
-//       valid_to: d.valid_to,
-//       service_rates: d.service_rates,
-//       contact_email: d.contact_email,
-//       last_updated_by: d.last_updated_by,
-//       last_updated_at: d.last_updated_at
-//     };
-//     modalTitle.textContent = "📤 Standardized Rate Card JSON";
-//     modalBody.innerHTML = `<pre style="background:#f5f5f5;padding:10px;border-radius:6px;white-space:pre-wrap;">${JSON.stringify(generated, null, 2)}</pre>`;
-//     modalBackdrop.style.display = "flex";
-//     saveBtn.onclick = () => (modalBackdrop.style.display = "none");
-//   };
-}
-
-
-
-
-  // ---------- MODAL ----------
-  function openModal(mode,id){
-    const rec=id?ns.data.find(x=>x.id===id):{id:Date.now(),customer:'',region:'',country:'',supplier:'',currency:'USD',entity:'',payment:'',status:'Active'};
-    const svcType=ns.currentType;
-    modalTitle.textContent=mode==='edit'?'Edit Record':mode==='view'?'View Record':'New Rate Card';
-    const readonly=mode==='view'?'readonly':'';
-    let html=`
-    <div class="rcFormRow"><label>Customer</label><input id="rcf_customer" value="${esc(rec.customer)}" ${readonly}></div>
-    <div class="rcFormRow"><label>Region</label><input id="rcf_region" value="${esc(rec.region)}" ${readonly}></div>
-    <div class="rcFormRow"><label>Country</label><input id="rcf_country" value="${esc(rec.country)}" ${readonly}></div>
-    <div class="rcFormRow"><label>Supplier</label><input id="rcf_supplier" value="${esc(rec.supplier)}" ${readonly}></div>
-    <div class="rcFormRow"><label>Currency</label><input id="rcf_currency" value="${esc(rec.currency)}" ${readonly}></div>
-    <div class="rcFormRow"><label>Entity</label><input id="rcf_entity" value="${esc(rec.entity)}" ${readonly}></div>
-    <div class="rcFormRow"><label>Payment</label><input id="rcf_payment" value="${esc(rec.payment)}" ${readonly}></div>
-    <div class="rcFormRow"><label>Status</label><input id="rcf_status" value="${esc(rec.status)}" ${readonly}></div>`;
-
-    if(svcType!=='default'){
-      html+=`<div style="font-weight:700;margin:10px 0;">${svcType.toUpperCase()} VALUES</div>`;
-      const svc=ns.services[rec.id]||{};
-      let i=0;
-      if(svcType==='dedicated'){
-        ns.dedicatedCols.forEach(b=>{
-          html+=`<div class="rcFormRow"><label>${b} (With)</label><input id="rcf_ded_${i}" value="${esc(svc.dedicated?.[i]||'')}" ${readonly}></div>`;
-          i++;
-          html+=`<div class="rcFormRow"><label>${b} (Without)</label><input id="rcf_ded_${i}" value="${esc(svc.dedicated?.[i]||'')}" ${readonly}></div>`;
-          i++;
-        });
-      } else {
-        const groups=(svcType==='scheduled')?ns.scheduledGroups:(svcType==='dispatch')?ns.dispatchGroups:ns.projectGroups;
-        groups.forEach(g=>g.bands.forEach(b=>{
-          html+=`<div class="rcFormRow"><label>${g.title} - ${b}</label><input id="rcf_svc_${i}" value="${esc(svc[svcType]?.[i]||'')}" ${readonly}></div>`;
-          i++;
-        }));
-      }
+    // If there are no categories discovered at all, show a single Service Rates placeholder column
+    let headerHtml;
+    if (categoryOrder.length === 0) {
+      headerHtml = `<tr>${baseCols()}<th>Service Rates</th><th>Status</th><th>Actions</th></tr>`;
+    } else {
+      headerHtml = `<tr>${baseCols()}${topHeaders}<th>Status</th><th>Actions</th></tr>
+                    <tr><th colspan="8"></th>${subHeaders}<th colspan="2"></th></tr>`;
     }
-    modalBody.innerHTML=html;
-    modalBackdrop.style.display='flex';
 
-    // Save handler (edit/new)
-    saveBtn.onclick=()=>{
-      if(mode==='view'){modalBackdrop.style.display='none';return;}
-      rec.customer=document.getElementById('rcf_customer').value;
-      rec.region=document.getElementById('rcf_region').value;
-      rec.country=document.getElementById('rcf_country').value;
-      rec.supplier=document.getElementById('rcf_supplier').value;
-      rec.currency=document.getElementById('rcf_currency').value;
-      rec.entity=document.getElementById('rcf_entity').value;
-      rec.payment=document.getElementById('rcf_payment').value;
-      rec.status=document.getElementById('rcf_status').value;
-      if(!id) ns.data.push(rec);
+    container.innerHTML = `<table><thead>${headerHtml}</thead><tbody>${rowsHtml || '<tr><td colspan="100%">No rows</td></tr>'}</tbody></table>`;
+  }
 
-      if(svcType!=='default'){
-        const svc=ns.services[rec.id]||{};
-        if(svcType==='dedicated'){
-          svc.dedicated=[];
-          for(let i=0;i<ns.dedicatedCols.length*2;i++){
-            svc.dedicated[i]=document.getElementById(`rcf_ded_${i}`).value;
+
+  // Modal open/edit/new using backend
+  function openModal(mode, id){
+  const rec = id ? (ns.data.find(x=>x.id===id) || {}) : {id:Date.now(), customer:'', region:'', country:'', supplier:'', currency:'USD', entity:'', payment:'', status:'Active'};
+  const svcType = ns.currentType;
+  modalTitle.textContent = mode==='edit'?'Edit Record':mode==='view'?'View Record':'New Rate Card';
+  const readonly = mode==='view' ? 'readonly' : '';
+
+  // base fields
+  let html = `
+    <div class="rcFormRow"><label>Customer</label><input id="rcf_customer" value="${esc(rec.customer||'')}" ${readonly}></div>
+    <div class="rcFormRow"><label>Region</label><input id="rcf_region" value="${esc(rec.region||'')}" ${readonly}></div>
+    <div class="rcFormRow"><label>Country</label><input id="rcf_country" value="${esc(rec.country||'')}" ${readonly}></div>
+    <div class="rcFormRow"><label>Supplier</label><input id="rcf_supplier" value="${esc(rec.supplier||'')}" ${readonly}></div>
+    <div class="rcFormRow"><label>Currency</label><input id="rcf_currency" value="${esc(rec.currency||'USD')}" ${readonly}></div>
+    <div class="rcFormRow"><label>Entity</label><input id="rcf_entity" value="${esc(rec.entity||'')}" ${readonly}></div>
+    <div class="rcFormRow"><label>Payment</label><input id="rcf_payment" value="${esc(rec.payment||'')}" ${readonly}></div>
+    <div class="rcFormRow"><label>Status</label><input id="rcf_status" value="${esc(rec.status||'Active')}" ${readonly}></div>
+  `;
+
+  // If current card type is service-rate (or we want service rates visible), include editable list
+  if(svcType === 'service-rate' || svcType !== 'default'){
+    html += `<hr><div style="font-weight:700;margin-bottom:8px">Service Rates</div>`;
+    // build a container for the list; fill it after opening modal by loading from ns.services
+    html += `<div id="rcSvcList" style="max-height:300px;overflow:auto;border:1px solid #eee;padding:8px;border-radius:6px">${'<div style="color:#777">Loading…</div>'}</div>`;
+    if(mode !== 'view') {
+      html += `<div style="margin-top:8px"><button class="btn" id="rcAddSvcBtn">＋ Add Service Rate</button></div>`;
+    }
+  }
+
+  modalBody.innerHTML = html;
+  modalBackdrop.style.display = 'flex';
+
+  // helper to render the service-rate editor/list inside modal
+  function renderSvcEditor(){
+    const svc = ns.services[rec.id] && ns.services[rec.id].service_rates ? ns.services[rec.id].service_rates.slice() : [];
+    const listEl = document.getElementById('rcSvcList');
+    if(!listEl) return;
+    if(svc.length === 0){
+      listEl.innerHTML = `<div style="color:#777" class="rcFormRow"><label style="width:auto">No service rates for this card.</label></div>`;
+      return;
+    }
+
+    // For consistent styling we render each service rate as a block of rcFormRow items
+    listEl.innerHTML = svc.map(s=>{
+      const sid = s.id || s._tmpId || `tmp-${Math.random().toString(36).slice(2,8)}`;
+      s._tmpId = sid;
+
+      if(mode === 'view'){
+        return `<div data-sid="${sid}" style="padding:8px;border-bottom:1px solid #f2f2f2">
+          <div class="rcFormRow"><label>Category</label><div class="rcValue">${esc(s.category||'—')}</div></div>
+          <div class="rcFormRow"><label>Rate</label><div class="rcValue">${esc(String(s.rate_value ?? '—'))} ${s.currency?esc(s.currency):''}</div></div>
+          <div class="rcFormRow"><label>Type</label><div class="rcValue">${esc(s.rate_type||'—')}</div></div>
+          <div class="rcFormRow"><label>Region</label><div class="rcValue">${esc(s.region||'—')}</div></div>
+          <div class="rcFormRow"><label>Remarks</label><div class="rcValue">${esc(s.remarks||'')}</div></div>
+        </div>`;
+      } else {
+        // editable layout uses same rcFormRow rows for visual consistency
+        return `<div data-sid="${sid}" style="padding:8px;border-bottom:1px solid #f8f8f8">
+          <div class="rcFormRow"><label>Category</label><input class="rc_svc_field" data-field="category" value="${esc(s.category||'')}" placeholder="e.g. Band 0"></div>
+
+          <div class="rcFormRow">
+            <label>Rate</label>
+            <input class="rc_svc_field" data-field="rate_value" value="${esc(s.rate_value||'')}" placeholder="e.g. 26000" style="width:140px">
+            <label style="margin-left:12px;width:60px">Type</label>
+            <input class="rc_svc_field" data-field="rate_type" value="${esc(s.rate_type||'')}" placeholder="free text (e.g. With, Hourly)" style="width:160px">
+            <div style="margin-left:auto;display:flex;gap:6px">
+              <button class="btn small rcSvcSave" data-sid="${sid}">Save</button>
+              <button class="btn small rcSvcDel" data-sid="${sid}">✖</button>
+            </div>
+          </div>
+
+          <div class="rcFormRow"><label>Region</label><input class="rc_svc_field" data-field="region" value="${esc(s.region||'')}" placeholder="Region / Location"></div>
+          <div class="rcFormRow"><label>Remarks</label><input class="rc_svc_field" data-field="remarks" value="${esc(s.remarks||'')}" placeholder="Optional remarks"></div>
+        </div>`;
+      }
+    }).join('');
+
+    // wire up buttons inside list
+    if(mode !== 'view'){
+      // save buttons
+      Array.from(listEl.querySelectorAll('.rcSvcSave')).forEach(btn=>{
+        btn.onclick = async (ev)=>{
+          const sid = btn.dataset.sid;
+          const wrapper = listEl.querySelector(`[data-sid="${sid}"]`);
+          if(!wrapper) return;
+          const fields = wrapper.querySelectorAll('.rc_svc_field');
+          const payload = {};
+          fields.forEach(inp=>payload[inp.dataset.field] = inp.value);
+          // find matching svc object in ns.services[rec.id].service_rates
+          const svcList = ns.services[rec.id].service_rates || [];
+          const existing = svcList.find(x=> (x._tmpId && x._tmpId === sid) || (x.id && String(x.id) === sid));
+          try {
+            if(existing && existing.id){
+              // update
+              const j = await updateServiceRate(existing.id, Object.assign({rate_card_id: rec.id}, payload));
+              if(j.success){
+                const idx = svcList.findIndex(x => x.id === existing.id);
+                svcList[idx] = j.service_rate;
+              } else {
+                alert('Update failed');
+              }
+            } else {
+              // create new
+              payload.rate_card_id = rec.id;
+              const j = await createServiceRate(payload);
+              if(j.success){
+                const idx = svcList.findIndex(x => x._tmpId === sid);
+                if(idx >= 0) svcList.splice(idx, 1, j.service_rate);
+                else svcList.push(j.service_rate);
+              } else {
+                alert('Create failed');
+              }
+            }
+            // re-render
+            ns.services[rec.id].service_rates = svcList;
+            renderSvcEditor();
+            render(); // update list table
+          } catch(err){
+            console.error(err);
+            alert('Request failed');
+          }
+        };
+      });
+
+      // delete buttons
+      Array.from(listEl.querySelectorAll('.rcSvcDel')).forEach(btn=>{
+        btn.onclick = async ()=>{
+          const sid = btn.dataset.sid;
+          const svcList = ns.services[rec.id].service_rates || [];
+          const existing = svcList.find(x=> x._tmpId === sid || (x.id && String(x.id) === sid));
+          if(!existing) return;
+          if(existing.id){
+            if(!confirm('Delete this service rate?')) return;
+            const j = await deleteServiceRateAPI(existing.id);
+            if(j.success){
+              ns.services[rec.id].service_rates = svcList.filter(x=> x.id !== existing.id);
+              renderSvcEditor();
+              render();
+            } else {
+              alert('Delete failed');
+            }
+          } else {
+            // just remove temp row
+            ns.services[rec.id].service_rates = svcList.filter(x=> x._tmpId !== sid);
+            renderSvcEditor();
+            render();
+          }
+        };
+      });
+    }
+  }
+
+  // when modal is opened, load service rates for this record if not already loaded
+  (async ()=>{
+    ns.services[rec.id] = ns.services[rec.id] || { service_rates: [] };
+    try{
+      if(!ns.services[rec.id].service_rates || ns.services[rec.id].service_rates.length === 0){
+        if(id){
+          const res = await fetch(`${API_BASE}/ratecards/${id}/`);
+          if(res.ok){
+            const j = await res.json();
+            ns.services[rec.id].service_rates = j.ratecard ? (j.ratecard.service_rates||[]) : [];
           }
         } else {
-          const groups=(svcType==='scheduled')?ns.scheduledGroups:(svcType==='dispatch')?ns.dispatchGroups:ns.projectGroups;
-          svc[svcType]=[];
-          let i=0;groups.forEach(g=>g.bands.forEach(()=>{
-            svc[svcType][i]=document.getElementById(`rcf_svc_${i}`).value;
-            i++;
-          }));
+          ns.services[rec.id].service_rates = [];
         }
-        ns.services[rec.id]=svc;
       }
-      modalBackdrop.style.display='none';
-      refreshSupplierFilter();
-      render();
+    }catch(err){
+      console.warn('Failed to fetch service rates', err);
+      ns.services[rec.id].service_rates = ns.services[rec.id].service_rates || [];
+    }finally{
+      renderSvcEditor();
+      const addBtn = document.getElementById('rcAddSvcBtn');
+      if(addBtn){
+        addBtn.onclick = ()=>{
+          ns.services[rec.id].service_rates = ns.services[rec.id].service_rates || [];
+          ns.services[rec.id].service_rates.unshift({ category:'', region:'', rate_type:'', rate_value:'', remarks:'', _tmpId:`tmp-${Math.random().toString(36).slice(2,8)}`});
+          renderSvcEditor();
+        };
+      }
+    }
+  })();
+
+  // Save handler for the main ratecard (not service-rate items)
+  saveBtn.onclick = async ()=>{
+    if(mode === 'view'){ modalBackdrop.style.display = 'none'; return; }
+    // collect base fields
+    const payload = {
+      customer: document.getElementById('rcf_customer').value,
+      region: document.getElementById('rcf_region').value,
+      country: document.getElementById('rcf_country').value,
+      supplier: document.getElementById('rcf_supplier').value,
+      currency: document.getElementById('rcf_currency').value,
+      entity: document.getElementById('rcf_entity').value,
+      payment: document.getElementById('rcf_payment').value,
+      status: document.getElementById('rcf_status').value,
     };
-    cancelBtn.onclick=()=>modalBackdrop.style.display='none';
-  }
+    try{
+      if(mode === 'new'){
+        const j = await createRateCard(payload);
+        if(j.success){
+          await loadRateCards();
+        } else {
+          alert('Create failed');
+          return;
+        }
+      } else {
+        const j = await updateRateCard(id, payload);
+        if(!j.success){ alert('Update failed'); return; }
+        await loadRateCards();
+      }
+    }catch(err){
+      console.error(err);
+      alert('Request failed');
+    } finally {
+      modalBackdrop.style.display = 'none';
+    }
+  };
 
-  function deleteRec(id){
-    if(!confirm('Delete this record?'))return;
-    ns.data=ns.data.filter(x=>x.id!==id);
-    delete ns.services[id];
-    render();
-  }
+  cancelBtn.onclick = ()=> modalBackdrop.style.display = 'none';
+}
 
-  // Events
-  container.addEventListener('click', e => {
-  const id = +e.target.dataset.id;
-  const viewType = e.target.dataset.viewtype;
 
-  if (e.target.classList.contains('rc-view')) {
-    if (viewType === 'details') {
-      const d = ns.rateCardSample;
-      modalTitle.textContent = "Service Rate Card Details";
-      modalBody.innerHTML = `
-        <div><b>${d.account_name}</b></div>
-        <div>Currency: ${d.currency}</div>
-        <div>Valid From: ${d.valid_from}</div>
-        <div>Valid To: ${d.valid_to ?? '—'}</div>
-        <div>Contact Email: ${d.contact_email}</div>
-        <div>Last Updated By: ${d.last_updated_by}</div>
-        <div>Last Updated At: ${new Date(d.last_updated_at).toLocaleString()}</div>
-      `;
-      modalBackdrop.style.display = 'flex';
-      saveBtn.onclick = () => (modalBackdrop.style.display = 'none');
+
+  async function deleteRec(id){
+    if(!confirm('Delete this record?')) return;
+    const j = await deleteRateCard(id);
+    if(j.success) {
+      ns.data = ns.data.filter(x=>x.id!==id);
+      render();
     } else {
-      openModal('view', id);
+      alert('Delete failed');
     }
   }
 
-  if (e.target.classList.contains('rc-edit')) openModal('edit', id);
-  if (e.target.classList.contains('rc-del')) deleteRec(id);
-});
+  // events
+  container.addEventListener('click', e=>{
+    const id = +e.target.dataset.id;
+    const viewType = e.target.dataset.viewtype;
+    if(e.target.classList.contains('rc-view')){
+      if(viewType === 'details'){
+        // open detailed service rate view by fetching ratecard detail
+        (async ()=>{
+          const res = await fetch(`${API_BASE}/ratecards/${id}/`);
+          const j = await res.json();
+          const d = j.ratecard;
+          modalTitle.textContent = "Service Rate Card Details";
+          modalBody.innerHTML = `
+            <div><b>${esc(d.customer)}</b></div>
+            <div>Currency: ${esc(d.currency)}</div>
+            <div>Valid From: —</div>
+            <div>Valid To: —</div>
+            <div>Contact Email: —</div>
+            <div>Last Updated At: ${esc(d.updated_at)}</div>
+            <hr>
+            <div style="font-weight:700">Service Rates</div>
+            <div>${(d.service_rates||[]).map(s=>`<div style="padding:6px;border-bottom:1px solid #eee"><b>${esc(s.category)}</b> — ${esc(s.region)} — ${esc(s.rate_type)} ${s.rate_value}</div>`).join('')}</div>
+          `;
+          modalBackdrop.style.display = 'flex';
+          saveBtn.onclick = ()=> (modalBackdrop.style.display = 'none');
+        })();
+      } else {
+        openModal('view', id);
+      }
+    }
+    if(e.target.classList.contains('rc-edit')) openModal('edit', id);
+    if(e.target.classList.contains('rc-del')) deleteRec(id);
+  });
 
-  cards.forEach(c=>c.onclick=()=>{cards.forEach(x=>x.classList.remove('active'));c.classList.add('active');ns.currentType=c.dataset.type;render();});
-  [searchEl,regionEl,currencyEl,supplierEl].forEach(el=>el.oninput=render);
-  newBtn.onclick=()=>openModal('new');
+  cards.forEach(c => c.onclick = ()=>{
+    cards.forEach(x=>x.classList.remove('active'));
+    c.classList.add('active');
+    ns.currentType = c.dataset.type;
+    render();
+  });
 
-  refreshSupplierFilter();
-  render();
+  [searchEl,regionEl,currencyEl,supplierEl].forEach(el => el.oninput = render);
+  newBtn.onclick = ()=> openModal('new');
+
+  // initial load
+  loadRateCards();
 })();
 </script>
+
 
 
 {% endblock %}
