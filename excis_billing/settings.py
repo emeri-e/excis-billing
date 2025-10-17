@@ -28,7 +28,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-&r5twgh-a9*=72plnee0sefd*(w$v@js@n+^ydrzbyp(te%$#v"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = [
     "billing.pickfreshdevelopment.site",
@@ -97,15 +97,15 @@ WSGI_APPLICATION = "excis_billing.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
+        "ENGINE": "django.db.backends.mysql",
         "NAME": config("DB_NAME", default="test_pickfres_billing"),
         "USER": config("DB_USERNAME", default="test_fres"),
         "PASSWORD": config("DB_PASSWORD", default="pA?ssWord1234."),
         "HOST": "localhost",
         "PORT": "3306",
-        # "OPTIONS": {
-        #     "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-        # },
+        "OPTIONS": {
+            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
     }
 }
 
