@@ -251,6 +251,13 @@ tbody tr:hover{background:#f9f9f9}
           </svg>
           Refresh
         </button>
+        
+        <div class="dropdown">
+            <i class="bi bi-three-dots-vertical dropdown" type="button" data-bs-toggle="dropdown" aria-expanded="true"></i>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'customers:billing_cycles_list' %}">Billing Cycle</a></li>
+          </ul>
+        </div>
       </div>
     </div>
 
