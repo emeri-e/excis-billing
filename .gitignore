@@ -4,3 +4,5 @@ media/
 staticfiles/
 logs/
 pickfres_billing
+/__pycache__/*
+git_remove.py
