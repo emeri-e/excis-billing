@@ -155,7 +155,7 @@ class AccountForm(forms.ModelForm):
         max_length=100,
         required=False,
         widget=forms.TextInput(
-            attrs={"class": "form-control", "placeholder": "e.g., Kenyan Shilling"}
+            attrs={"class": "form-control", "placeholder": "e.g., US Dollar"}
         ),
     )
     new_currency_symbol = forms.CharField(
@@ -169,7 +169,7 @@ class AccountForm(forms.ModelForm):
         max_length=100,
         required=False,
         widget=forms.TextInput(
-            attrs={"class": "form-control", "placeholder": "e.g., Kenya, USA"}
+            attrs={"class": "form-control", "placeholder": "e.g. USA"}
         ),
         help_text="Add new country if not in list",
     )
@@ -179,7 +179,7 @@ class AccountForm(forms.ModelForm):
         widget=forms.TextInput(
             attrs={
                 "class": "form-control",
-                "placeholder": "e.g., KEN, $",
+                "placeholder": "e.g. US",
                 "maxlength": 3,
                 "style": "text-transform: uppercase;",
             }
