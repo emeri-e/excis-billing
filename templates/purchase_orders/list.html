@@ -3,741 +3,2109 @@
 
 {% block title %}Purchase Orders - Excis Billing System{% endblock %}
 
+{% block page_title %}Purchase Orders{% endblock %}
+
 {% block extra_css %}
 <style>
-/* ========== PO DASHBOARD - LIGHT THEME ========== */
-:root{
-  --bg:#ffffff; --panel:#ffffff; --card:#ffffff; --ink:#111827; --muted:#6b7280;
-  --line:#e5e7eb; --brand:#4e1313; --brand-2:#6366f1; --ok:#059669; --warn:#d97706;
-  --low:#f59e0b; --zero:#9ca3af; --critical:#dc2626;
+/* PO Dashboard Styles */
+:root {
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --card: #ffffff;
+  --ink: #111827;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --brand: #dc2626;
+  --brand-2: #6366f1;
+  --ok: #059669;
+  --warn: #d97706;
+  --low: #f59e0b;
+  --zero: #9ca3af;
 }
 
-/* container + buttons */
-#po-app{color:var(--ink); background:#ffffff;}
-.po-wrap{max-width:1200px;margin:0 auto;padding:16px}
-.po-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.po-title{font-size:28px;margin:0}
-.po-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:#ffffff;color:var(--ink);padding:10px 14px;border-radius:10px;cursor:pointer;text-decoration:none}
-.po-btn.primary{background:var(--brand);color:#fff;border-color:#4e1313;box-shadow:0 8px 24px rgba(79,70,229,.18)}
-.po-btn:active{transform:translateY(1px)}
-.po-btn:hover{text-decoration:none;opacity:0.9}
-
-/* Notification Bell Styles */
-.notification-bell {
-  position: relative;
+.po-wrap { max-width: 1500px; margin: 0 auto; padding: 16px; }
+.po-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.po-title { font-size: 28px; margin: 0; font-weight: 700; }
+.po-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--ink);
+  padding: 10px 14px;
+  border-radius: 10px;
   cursor: pointer;
-  padding: 8px;
-  border-radius: 50%;
-  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
 }
-.notification-bell:hover {
-  background: rgba(79, 19, 19, 0.1);
+.po-btn:hover { background: #f9fafb; }
+.po-btn.primary {
+  background: var(--brand);
+  color: #fff;
+  border-color: var(--brand);
+  box-shadow: 0 8px 24px rgba(220, 38, 38, 0.18);
 }
-.notification-badge {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  background: var(--critical);
-  color: white;
-  border-radius: 50%;
+.po-btn.primary:hover { background: #b91c1c; }
+.po-btn:active { transform: translateY(1px); }
+.po-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.po-checkbox {
   width: 18px;
   height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: bold;
-  animation: pulse 2s infinite;
-}
-@keyframes pulse {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.1); opacity: 0.8; }
-  100% { transform: scale(1); opacity: 1; }
+  cursor: pointer;
+  accent-color: var(--brand);
 }
 
-/* Notification Dropdown */
-.notification-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  background: white;
+.po-table tbody tr.selected td {
+  background: #eef2ff !important;
+  border-color: var(--brand) !important;
+}
+
+.export-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.selection-info {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 0 10px;
+}
+
+/* KPI Cards */
+.po-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 8px 0 16px;
+}
+.po-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+}
+.po-card .label { font-size: 13px; color: var(--muted); font-weight: 500; }
+.po-card .value {
+  margin-top: 8px;
+  font-weight: 700;
+  font-size: 24px;
+  color: var(--ink);
+}
+.po-card .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+/* Block Container */
+.po-block {
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-  width: 350px;
-  max-height: 400px;
-  overflow-y: auto;
-  z-index: 1000;
-  display: none;
+  overflow: hidden;
 }
-.notification-dropdown.show {
+
+/* Toolbar */
+.po-toolbar {
+  padding: 14px;
+  border-bottom: 1px solid var(--line);
+  background: #f9fafb;
+}
+.po-toolbar .row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.po-select, .po-search {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+.po-search {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 250px;
+}
+.po-search input {
+  all: unset;
+  color: var(--ink);
+  flex: 1;
+}
+
+/* Show More Info Dropdown */
+.show-more-wrapper {
+  position: relative;
+}
+.show-more-dropdown {
+  display: none;
+  position: absolute;
+  top: 110%;
+  left: 0;
+  background: white;
+  border: 1px solid var(--line);
+  padding: 12px;
+  border-radius: 8px;
+  z-index: 100;
+  min-width: 240px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.show-more-dropdown.active {
   display: block;
 }
-.notification-header {
-  padding: 16px;
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.notification-item {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--line);
+.show-more-dropdown label {
+  display: block;
+  margin-bottom: 8px;
   cursor: pointer;
-  transition: background 0.2s;
-}
-.notification-item:hover {
-  background: #f8fafc;
-}
-.notification-item.critical {
-  border-left: 4px solid var(--critical);
-}
-.notification-item.warning {
-  border-left: 4px solid var(--warn);
-}
-.notification-item.info {
-  border-left: 4px solid var(--brand-2);
-}
-.notification-message {
   font-size: 14px;
-  color: var(--ink);
-  margin-bottom: 4px;
 }
-.notification-meta {
-  font-size: 12px;
+.show-more-dropdown label:hover {
+  color: var(--brand);
+}
+.show-more-dropdown input[type="checkbox"] {
+  margin-right: 8px;
+  cursor: pointer;
+}
+.show-more-dropdown hr {
+  margin: 12px 0;
+  border: none;
+  border-top: 1px solid var(--line);
+}
+.dropdown-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+/* Table */
+.po-table { padding: 10px; overflow-x: auto; }
+.po-table table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 8px;
+  min-width: 1500px;
+}
+.po-table thead th {
   color: var(--muted);
+  font-size: 12px;
+  text-align: left;
+  padding: 0 12px;
+  font-weight: 600;
+  text-transform: uppercase;
 }
-
-/* cards */
-.po-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:8px 0 16px}
-.po-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
-.po-card .label{font-size:12px;color:var(--muted)}
-.po-card .value{margin-top:6px;font-weight:700;font-size:22px}
-.po-card .hint{color:var(--muted);font-size:12px}
-
-/* block */
-.po-block{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.po-toolbar{padding:14px;border-bottom:1px solid var(--line)}
-.po-toolbar .row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
-.po-select,.po-search{background:#ffffff;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 10px}
-.po-search{display:flex;gap:8px;align-items:center}
-.po-search input{all:unset;color:var(--ink);width:200px}
-
-/* table */
-.po-table{padding:10px}
-.po-table table{width:100%;border-collapse:separate;border-spacing:0 8px}
-.po-table thead th{color:var(--muted);font-size:12px;text-align:left;padding:0 12px}
-.po-table tbody td{background:#ffffff;border:1px solid var(--line);padding:12px}
-.po-table tbody tr td:first-child{border-top-left-radius:10px;border-bottom-left-radius:10px}
-.po-table tbody tr td:last-child{border-top-right-radius:10px;border-bottom-right-radius:10px}
-
-/* Low balance row highlighting */
-.po-table tbody tr.low-balance td {
-  background: #fef2f2 !important;
-  border-color: #fecaca !important;
+.po-table thead th.hidden {
+  display: none;
 }
-.po-table tbody tr.low-balance td:first-child{
-  border-left: 4px solid var(--critical);
+.po-table tbody td {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  padding: 12px;
+  font-size: 14px;
 }
+.po-table tbody td.hidden {
+  display: none;
+}
+.po-table tbody tr td:first-child:not(.hidden) {
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
+}
+.po-table tbody tr td:last-child:not(.hidden) {
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+.po-table tbody tr:hover td { background: #f9fafb; }
+.right { text-align: right; }
+.helper { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
-.right{text-align:right}
-.helper{font-size:12px;color:var(--muted)}
-
-/* status chips */
+/* Status Chips */
 .status {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  padding: 6px 8px;
+  padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: #f8fafc;
+  font-weight: 500;
 }
-.status.ok {
+.status.active {
   color: var(--ok);
   border-color: #bbf7d0;
   background: #ecfdf5;
 }
-.status.low {
+.status.low_balance {
   color: #92400e;
   border-color: #fde68a;
   background: #fffbeb;
 }
-.status.exp {
-  color: #92400e;
+.status.expiring_soon {
+  color: #c2410c;
   border-color: #fed7aa;
   background: #fff7ed;
 }
-.status.zero {
+.status.fully_utilized {
   color: var(--zero);
   background: #f3f4f6;
-}
-.status.critical {
-  color: white;
-  background: var(--critical);
-  border-color: var(--critical);
+  border-color: #d1d5db;
 }
 
-/* actions */
-.actions{display:flex;gap:10px;opacity:.9}
-.icon{cursor:pointer;font-size:16px}
+/* Actions */
+.actions {
+  display: flex;
+  gap: 10px;
+  opacity: 0.9;
+}
+.icon {
+  cursor: pointer;
+  font-size: 18px;
+  transition: transform 0.2s;
+}
+.icon:hover { transform: scale(1.1); }
 
-/* progress */
-.progress{height:6px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:999px;position:relative;overflow:hidden}
-.bar{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--brand),var(--brand-2))}
-.bar.critical{background:var(--critical)}
+/* Progress Bar */
+.progress {
+  height: 6px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  position: relative;
+  overflow: hidden;
+}
+.bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, var(--brand), var(--brand-2));
+  transition: width 0.3s;
+}
 
-/* footer */
-.po-footer{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px;padding:10px 14px;border-top:1px solid var(--line)}
+/* Footer */
+.po-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+}
 
-/* modal */
-.modal-dialog{max-width:640px}
+/* Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.active { display: flex; }
 
-@media (max-width:900px){
-  .po-cards{grid-template-columns:repeat(2,1fr)}
+.modal-container {
+  background: #ffffff;
+  border-radius: 14px;
+  width: min(900px, 94vw);
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f9fafb;
+}
+.modal-header h3 { margin: 0; font-size: 18px; font-weight: 600; }
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  background: #f9fafb;
+}
+
+/* Form Fields */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.form-field.full { grid-column: 1 / -1; }
+.form-field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.form-field input,
+.form-field select,
+.form-field textarea {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--ink);
+  font-size: 14px;
+}
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+.form-section-title {
+  grid-column: 1 / -1;
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 8px;
+  margin-bottom: -8px;
+  color: var(--ink);
+}
+
+/* CSV Upload Area */
+.csv-upload-area {
+  border: 2px dashed var(--line);
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: #f9fafb;
+}
+.csv-upload-area:hover {
+  border-color: var(--brand);
+  background: #fef2f2;
+}
+.csv-upload-area.dragover {
+  border-color: var(--brand);
+  background: #fee2e2;
+}
+
+/* CSV Summary Box */
+.csv-summary {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 12px;
+}
+.csv-summary h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ok);
+}
+.csv-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.csv-stat {
+  text-align: center;
+}
+.csv-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.csv-stat-label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* Record Selection */
+.record-selector {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 16px;
+  background: #fafafa;
+}
+.record-selector h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.record-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+}
+.record-item {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.record-item:last-child {
+  border-bottom: none;
+}
+.record-item:hover {
+  background: #f9fafb;
+}
+.record-item.selected {
+  background: #fee2e2;
+  border-left: 3px solid var(--brand);
+}
+.record-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.record-account {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+}
+.record-po {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: monospace;
+}
+.record-details {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Loading Spinner */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #ffffff;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Currency Input with Custom Option */
+.currency-input-wrapper {
+  position: relative;
+}
+.custom-currency-input {
+  display: none;
+  margin-top: 8px;
+}
+.custom-currency-input.show {
+  display: block;
+}
+
+@media (max-width: 900px) {
+  .po-cards { grid-template-columns: repeat(2, 1fr); }
+  .form-grid { grid-template-columns: 1fr; }
+  .csv-summary-grid { grid-template-columns: 1fr; }
 }
 </style>
 {% endblock %}
 
 {% block content %}
-  <section id="po-app">
-    <div class="po-wrap">
-      <div class="po-header">
-        <h2 class="po-title">Purchase Orders</h2>
-        <div style="display:flex;gap:8px;align-items:center">
-          <!-- Notification Bell -->
-          <div class="notification-bell" id="notificationBell">
-            <svg width="20" height="20" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M25.3677 18.9391V9.86768C25.3677 4.70215 21.1655 0.5 16 0.5C10.8345 0.5 6.63232 4.70215 6.63232 9.86768V18.9397C4.96704 19.4224 3.73828 20.9544 3.73828 22.8374C3.73828 25.0386 5.5293 26.8296 7.73096 26.8296H11.377V26.877C11.377 29.4263 13.4507 31.5 16 31.5C18.5493 31.5 20.6231 29.4263 20.6231 26.8769V26.8296H24.2691C26.4707 26.8296 28.2617 25.0386 28.2617 22.7583C28.2617 20.9406 27.033 19.4198 25.3677 18.9391Z" fill="#A098AE"/>
-            </svg>
-            <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
-            
-            <!-- Notification Dropdown -->
-            <div class="notification-dropdown" id="notificationDropdown">
-              <div class="notification-header">
-                <h6 style="margin:0">Notifications</h6>
-                <button onclick="markAllAsRead()" style="background:none;border:none;color:var(--brand);cursor:pointer;font-size:12px">Mark all read</button>
-              </div>
-              <div id="notificationsList">
-                <!-- Notifications will be loaded here -->
-              </div>
-            </div>
-          </div>
-          
-          <a href="{% url 'purchase_orders:export' %}" class="po-btn" id="po-export">Export PO Report</a>
-          <a href="{% url 'purchase_orders:create' %}" class="po-btn primary">+ Create New PO</a>
-        </div>
+<section id="po-app">
+  <div class="po-wrap">
+    <!-- Header -->
+    <div class="po-header">
+      <h2 class="po-title">Purchase Orders</h2>
+      <div class="export-actions">
+        <span class="selection-info" id="selection-info" style="display:none;">
+          <span id="selected-count">0</span> selected
+        </span>
+        <button class="po-btn" id="po-export-selected" style="display:none;">
+          📩 Export Selected
+        </button>
+        <button class="po-btn" id="po-export">📩 Export All</button>
+        <button class="po-btn" id="po-bulk-import" style="background:#059669;color:#fff;border-color:#059669;">
+          📥 Bulk Import from CSV
+        </button>
+        <button class="po-btn primary" id="po-new">+ Create New PO</button>
       </div>
+    </div>
 
-      <div class="po-cards">
-        <div class="po-card">
-          <div class="label">Active POs</div>
-          <div class="value">{{ kpis.active_pos }}</div>
-          <div class="hint">Across all customers</div>
-        </div>
-        <div class="po-card">
-          <div class="label">Total Value</div>
-          <div class="value">${{ kpis.total_value|floatformat:0 }}</div>
-          <div class="hint">Combined PO value</div>
-        </div>
-        <div class="po-card">
-          <div class="label">Low Balance</div>
-          <div class="value">{{ kpis.low_balance_pos }}</div>
-          <div class="hint">Require attention</div>
-        </div>
-        <div class="po-card">
-          <div class="label">Expiring Soon</div>
-          <div class="value">{{ kpis.expiring_soon }}</div>
-          <div class="hint">Within 30 days</div>
-        </div>
+    <!-- KPI Cards -->
+    <div class="po-cards">
+      <div class="po-card">
+        <div class="label">Active POs</div>
+        <div class="value">{{ kpis.active_pos }}</div>
+        <div class="hint">Across all customers</div>
       </div>
+      <div class="po-card">
+        <div class="label">Total Value</div>
+        <div class="value">${{ kpis.total_value|floatformat:0|default:"0" }}</div>
+        <div class="hint">Combined PO value</div>
+      </div>
+      <div class="po-card">
+        <div class="label">Low Balance</div>
+        <div class="value">{{ kpis.low_balance_pos }}</div>
+        <div class="hint">Require attention</div>
+      </div>
+      <div class="po-card">
+        <div class="label">Expiring Soon</div>
+        <div class="value">{{ kpis.expiring_soon }}</div>
+        <div class="hint">Within 30 days</div>
+      </div>
+    </div>
 
-      <div class="po-block">
-        <div class="po-toolbar">
-          <div class="row">
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <form method="get" style="display:flex;gap:8px;flex-wrap:wrap">
-                <select name="customer" class="po-select" onchange="this.form.submit()">
-                  <option value="">All Customers</option>
-                  {% for customer in customers %}
-                  <option value="{{ customer.id }}" {% if customer.id|stringformat:"s" == customer_filter %}selected{% endif %}>
-                    {{ customer.name }}
-                  </option>
-                  {% endfor %}
-                </select>
-                
-                <select name="status" class="po-select" onchange="this.form.submit()">
-                  <option value="">All Statuses</option>
-                  {% for value, label in status_choices %}
-                  <option value="{{ value }}" {% if value == status_filter %}selected{% endif %}>{{ label }}</option>
-                  {% endfor %}
-                </select>
-                
-                <select name="account" class="po-select" onchange="this.form.submit()">
-                  <option value="">All Accounts</option>
-                  {% for account in accounts %}
-                  <option value="{{ account.id }}" {% if account.id|stringformat:"s" == account_filter %}selected{% endif %}>
-                    {{ account.account_id }} - {{ account.name }}
-                  </option>
-                  {% endfor %}
-                </select>
-                
-                <button type="button" class="po-btn" onclick="clearFilters()">Clear filters</button>
-              </form>
-            </div>
-          </div>
-        </div>
-
-        <div class="po-table">
-          <table>
-            <thead>
-              <tr>
-                <th>PO NUMBER</th>
-                <th>CUSTOMER / ACCOUNT</th>
-                <th class="right">TOTAL AMOUNT</th>
-                <th class="right">REMAINING BALANCE</th>
-                <th>VALID FROM</th>
-                <th>VALID UNTIL</th>
-                <th>STATUS</th>
-                <th>ACTIONS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for po in purchase_orders %}
-              <tr data-id="{{ po.id }}" {% if po.utilization_percentage >= 90 %}class="low-balance"{% endif %}>
-                <td>
-                  <div style="font-weight:600">
-                    <a href="{% url 'purchase_orders:detail' po.id %}" title="View Details">{{ po.po_number }}</a>
-                  </div>
-                  <div class="helper">Created: {{ po.created_at|date:"M d, Y" }}</div>
-                </td>
-                <td>
-                  <div style="font-weight:600">{{ po.customer.name }}</div>
-                  <div class="helper">
-                    {% if po.account %}
-                      {{ po.account.account_id }} - {{ po.account.name }}
-                    {% else %}
-                      {{ po.customer.code }}
-                    {% endif %}
-                  </div>
-                </td>
-                <td class="right">${{ po.total_amount|floatformat:2 }}</td>
-                <td class="right">
-                  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-                    <div>${{ po.remaining_balance|floatformat:2 }}</div>
-                    <div class="progress" aria-label="remaining">
-                      <div class="bar {% if po.utilization_percentage >= 90 %}critical{% endif %}" style="width:{{ po.utilization_percentage|floatformat:0 }}%"></div>
-                    </div>
-                  </div>
-                </td>
-                <td>{{ po.valid_from|date:"Y-m-d" }}</td>
-                <td>{{ po.valid_until|date:"Y-m-d" }}</td>
-                <td>
-                  <span class="status{% if po.status == 'active' %} ok{% elif po.status == 'expiring_soon' %} exp{% elif po.status == 'expired' %} zero{% else %} low{% endif %}{% if po.utilization_percentage >= 90 %} critical{% endif %}">
-                    {% if po.utilization_percentage >= 90 %}Low Balance{% else %}{{ po.get_status_display }}{% endif %}
-                  </span>
-                </td>
-                <td class="actions">
-                  <span class="icon" onclick="viewPO({{ po.id }})" title="View Details">👁️</span>
-                  <a href="{% url 'purchase_orders:edit' po.id %}" class="icon" title="Edit">✏️</a>
-                  {% if po.status != 'expired' %}
-                  <span class="icon" onclick="duplicatePO({{ po.id }})" title="Duplicate">📄</span>
-                  {% endif %}
-                  <span class="icon text-danger" onclick="deletePO({{ po.id }})" title="Delete">🗑️</span>
-                </td>
-              </tr>
-              {% empty %}
-              <tr>
-                <td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">
-                  <div>No purchase orders found</div>
-                  <a href="{% url 'purchase_orders:create' %}" class="po-btn primary" style="margin-top:1rem">Create First PO</a>
-                </td>
-              </tr>
+    <!-- Main Block -->
+    <div class="po-block">
+      <!-- Toolbar -->
+      <div class="po-toolbar">
+        <div class="row">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <select class="po-select" id="fCustomer">
+              <option value="">All Customers</option>
+              {% for customer in customers %}
+              <option value="{{ customer.id }}" {% if customer_filter == customer.id|stringformat:"s" %}selected{% endif %}>
+                {{ customer.name }}
+              </option>
               {% endfor %}
-            </tbody>
-          </table>
-        </div>
+            </select>
+            
+            <select class="po-select" id="fStatus">
+              <option value="">All Statuses</option>
+              {% for value, label in status_choices %}
+              <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            
+            <select class="po-select" id="fCurrency">
+              <option value="">All Currencies</option>
+              {% for currency in currencies %}
+                {% if currency %}
+                  <option value="{{ currency }}" {% if currency_filter == currency %}selected{% endif %}>
+                    {{ currency }}
+                  </option>
+                {% endif %}
+              {% endfor %}
+            </select>
 
-        <div class="po-footer">
-          <div>Showing {{ purchase_orders|length }} of {{ total_count }} results</div>
-          {% if purchase_orders.has_other_pages %}
-          <div style="display:flex;gap:6px">
-            {% if purchase_orders.has_previous %}
-            <a href="?page={{ purchase_orders.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if customer_filter %}&customer={{ customer_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if account_filter %}&account={{ account_filter }}{% endif %}" class="po-btn">Previous</a>
-            {% endif %}
+            <!-- Show More Info Dropdown -->
+            <div class="show-more-wrapper">
+              <button type="button" id="showMoreBtn" class="po-btn">Show More Info</button>
+              <div id="showMoreDropdown" class="show-more-dropdown">
+                <div style="max-height:260px;overflow:auto;padding-right:6px;">
+                  <label><input type="checkbox" class="col-toggle" data-col="project"> Project</label>
+                  <label><input type="checkbox" class="col-toggle" data-col="sdm"> SDM</label>
+                  <label><input type="checkbox" class="col-toggle" data-col="billto"> Bill To</label>
+                  <label><input type="checkbox" class="col-toggle" data-col="billaddr"> Billing Address</label>
+                  <label><input type="checkbox" class="col-toggle" data-col="about"> About</label>
+                  <label><input type="checkbox" class="col-toggle" data-col="workdone"> Work Done</label>
+                  <label><input type="checkbox" class="col-toggle" data-col="comment"> Comment</label>
+                  <label><input type="checkbox" class="col-toggle" data-col="expdays"> Expiration Days</label>
+                </div>
+                <hr>
+                <div class="dropdown-footer">
+                  <button id="showFullBtn" type="button" class="po-btn">Show All</button>
+                  <button id="revertBtn" type="button" class="po-btn" style="background:#6b7280;color:#fff;">Revert</button>
+                </div>
+              </div>
+            </div>
             
-            <span class="po-btn">{{ purchase_orders.number }} of {{ purchase_orders.paginator.num_pages }}</span>
-            
-            {% if purchase_orders.has_next %}
-            <a href="?page={{ purchase_orders.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if customer_filter %}&customer={{ customer_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if account_filter %}&account={{ account_filter }}{% endif %}" class="po-btn">Next</a>
-            {% endif %}
+            <button class="po-btn" id="fClear" type="button">Clear filters</button>
           </div>
+
+          <div class="po-search">
+            <span>🔍</span>
+            <input id="fSearch" placeholder="Search PO numbers..." value="{{ search_query|default:'' }}" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="po-table">
+        <table id="po-table">
+          <thead>
+            <tr id="po-head">
+              <th style="width: 40px;">
+                <input type="checkbox" id="select-all" class="po-checkbox" title="Select All" />
+              </th>
+              <th>PO NUMBER</th>
+              <th>CUSTOMER</th>
+              <th class="right">TOTAL</th>
+              <th class="right">BALANCE</th>
+              <th>VALID FROM</th>
+              <th>VALID UNTIL</th>
+              <th>STATUS</th>
+              <th>ACTIONS</th>
+              <th class="hidden" data-col="project">PROJECT</th>
+              <th class="hidden" data-col="sdm">SDM</th>
+              <th class="hidden" data-col="billto">BILL TO</th>
+              <th class="hidden" data-col="billaddr">BILLING ADDRESS</th>
+              <th class="hidden" data-col="about">ABOUT</th>
+              <th class="hidden" data-col="workdone">WORK DONE</th>
+              <th class="hidden" data-col="comment">COMMENT</th>
+              <th class="hidden" data-col="expdays">EXPIRATION DAYS</th>
+            </tr>
+          </thead>
+          <tbody id="po-tbody">
+            {% for po in purchase_orders %}
+            <tr data-id="{{ po.id }}">
+              <td>
+                <input type="checkbox" class="row-checkbox po-checkbox" value="{{ po.id }}" />
+              </td>
+              <td>
+                <div style="font-weight:600">{{ po.po_number }}</div>
+              </td>
+              <td>
+                <div style="font-weight:600">{{ po.customer.name }}</div>
+              </td>
+              <td class="right">{{ po.total_amount|floatformat:2 }} {{ po.currency }}</td>
+              <td class="right">
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+                  <div>{{ po.remaining_balance|floatformat:2 }} {{ po.currency }}</div>
+                  <div class="progress">
+                    <div class="bar" style="width:{{ po.utilization_percentage|floatformat:0 }}%"></div>
+                  </div>
+                </div>
+              </td>
+              <td>{{ po.valid_from|date:"Y-m-d" }}</td>
+              <td>{{ po.valid_until|date:"Y-m-d" }}</td>
+              <td><span class="status {{ po.status }}">{{ po.get_status_display }}</span></td>
+              <td class="actions">
+                <span class="icon" data-act="edit" title="Edit">✏️</span>
+                <span class="icon" data-act="dup" title="Duplicate">📝</span>
+                <span class="icon" data-act="del" title="Delete">🗑️</span>
+              </td>
+              <td class="hidden" data-col="project">{{ po.project|default:"-" }}</td>
+              <td class="hidden" data-col="sdm">{{ po.sdm|default:"-" }}</td>
+              <td class="hidden" data-col="billto">{{ po.bill_to|default:"-" }}</td>
+              <td class="hidden" data-col="billaddr">{{ po.billing_address|default:"-" }}</td>
+              <td class="hidden" data-col="about">{{ po.about|default:"-" }}</td>
+              <td class="hidden" data-col="workdone">{{ po.work_done|default:"-" }}</td>
+              <td class="hidden" data-col="comment">{{ po.comment|default:"-" }}</td>
+              <td class="hidden" data-col="expdays">{{ po.expiration_days|default:"-" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="16" style="text-align:center;color:var(--muted);padding:30px;">
+                No purchase orders found
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer -->
+      <div class="po-footer">
+        <div id="resultInfo">Showing {{ purchase_orders|length }} of {{ total_count }} results</div>
+        <div style="display:flex;gap:6px">
+          {% if purchase_orders.has_previous %}
+          <a href="?page={{ purchase_orders.previous_page_number }}&status={{ status_filter|default:'' }}&customer={{ customer_filter|default:'' }}&currency={{ currency_filter|default:'' }}&search={{ search_query|default:'' }}" class="po-btn">Previous</a>
+          {% else %}
+          <button class="po-btn" disabled>Previous</button>
+          {% endif %}
+          
+          {% if purchase_orders.has_next %}
+          <a href="?page={{ purchase_orders.next_page_number }}&status={{ status_filter|default:'' }}&customer={{ customer_filter|default:'' }}&currency={{ currency_filter|default:'' }}&search={{ search_query|default:'' }}" class="po-btn">Next</a>
+          {% else %}
+          <button class="po-btn" disabled>Next</button>
           {% endif %}
         </div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-<!-- PO Details Modal -->
-<div class="modal fade" id="poDetailModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Purchase Order Details</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<!-- Create/Edit Modal -->
+<div class="modal-overlay" id="po-modal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h3 id="modal-title">Create New PO</h3>
+      <button type="button" class="po-btn" id="modal-close" style="padding:6px 10px;">✖️</button>
+    </div>
+    
+    <div class="modal-body">
+      <!-- CSV Upload Section -->
+      <div id="csv-section" style="margin-bottom:24px;">
+        <label style="font-weight:600;margin-bottom:8px;display:block;">Upload CSV File</label>
+        <div class="csv-upload-area" id="csv-upload-area">
+          <input type="file" id="csv-input" accept=".csv" style="display:none;" />
+          <div>
+            <div style="font-size:32px;margin-bottom:8px;">📥</div>
+            <div style="font-weight:500;margin-bottom:4px;">Drop CSV file here or click to browse</div>
+            <div style="font-size:12px;color:var(--muted);">Supports .csv files up to 50MB</div>
+          </div>
+        </div>
+        <div id="csv-status" style="margin-top:8px;font-size:13px;"></div>
+        
+        <!-- CSV Summary Box (hidden by default) -->
+        <div id="csv-summary" class="csv-summary" style="display:none;">
+          <h4>✅ CSV Parsed Successfully</h4>
+          <div class="csv-summary-grid">
+            <div class="csv-stat">
+              <div class="csv-stat-value" id="csv-total-records">0</div>
+              <div class="csv-stat-label">Total Records</div>
+            </div>
+            <div class="csv-stat">
+              <div class="csv-stat-value" id="csv-unique-accounts">0</div>
+              <div class="csv-stat-label">Unique Accounts</div>
+            </div>
+            <div class="csv-stat">
+              <div class="csv-stat-value" id="csv-unique-pos">0</div>
+              <div class="csv-stat-label">PO Numbers</div>
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);">
+            <strong>Customer:</strong> <span id="csv-customer-name">-</span> â€¢ 
+            <strong>Currencies:</strong> <span id="csv-currencies">-</span>
+          </div>
+        </div>
+        
+        <!-- Record Selector (hidden by default) -->
+        <div id="record-selector" class="record-selector" style="display:none;">
+          <h4>Select a record to populate the form:</h4>
+          <div class="record-list" id="record-list"></div>
+        </div>
       </div>
-      <div class="modal-body" id="poDetailContent">
-        <!-- Content will be loaded here -->
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        <a href="#" id="editPOLink" class="btn btn-primary">Edit PO</a>
-      </div>
+
+      <!-- PO Form -->
+      <form id="po-form">
+        <input type="hidden" id="po-id" />
+        
+        <div class="form-grid">
+          <!-- Basic Info -->
+          <div class="form-field">
+            <label>PO Number *</label>
+            <input type="text" id="po-number" required placeholder="Auto-generated" />
+          </div>
+          
+          <div class="form-field">
+            <label>Customer *</label>
+            <select id="customer">
+              <option value="">-- Select or enter new --</option>
+              {% for customer in customers %}
+              <option value="{{ customer.id }}">{{ customer.name }}</option>
+              {% endfor %}
+            </select>
+            <input type="text" id="customer-new" placeholder="Or enter new customer name" style="margin-top:4px;" />
+          </div>
+          
+          <div class="form-field">
+            <label>Account</label>
+            <select id="account">
+              <option value="">-- Select or enter new --</option>
+            </select>
+            <input type="text" id="account-new" placeholder="Or enter new account name" style="margin-top:4px;" />
+          </div>
+          
+          <div class="form-field">
+            <label>Currency *</label>
+            <div class="currency-input-wrapper">
+              <select id="currency" required>
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+                <option value="MYR">MYR</option>
+                <option value="SGD">SGD</option>
+                <option value="CUSTOM">+ Add Custom Currency</option>
+              </select>
+              <input type="text" id="currency-custom" class="custom-currency-input" 
+                     placeholder="Enter currency code (e.g., JPY)" 
+                     maxlength="3" 
+                     pattern="[A-Z]{3}" 
+                     style="border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 14px;" />
+            </div>
+          </div>
+          
+          <div class="form-field">
+            <label>Total Amount *</label>
+            <input type="number" id="total" step="0.01" min="0" required placeholder="0.00" />
+          </div>
+          
+          <div class="form-field">
+            <label>Spent Amount</label>
+            <input type="number" id="spent" step="0.01" min="0" placeholder="0.00" />
+          </div>
+          
+          <div class="form-field">
+            <label>Valid From *</label>
+            <input type="date" id="valid-from" required />
+          </div>
+          
+          <div class="form-field">
+            <label>Valid Until *</label>
+            <input type="date" id="valid-until" required />
+          </div>
+          
+          <!-- Additional Info -->
+          <div class="form-section-title">Additional Information</div>
+          
+          <div class="form-field">
+            <label>Project</label>
+            <input type="text" id="project" placeholder="Project name" />
+          </div>
+          
+          <div class="form-field">
+            <label>SDM</label>
+            <input type="text" id="sdm" placeholder="Service Delivery Manager" />
+          </div>
+          
+          <div class="form-field">
+            <label>Bill To</label>
+            <input type="text" id="bill-to" placeholder="Billing entity" />
+          </div>
+          
+          <div class="form-field">
+            <label>Billing Address</label>
+            <input type="text" id="billing-address" placeholder="Full billing address" />
+          </div>
+          
+          <div class="form-field full">
+            <label>About</label>
+            <textarea id="about" rows="2" placeholder="Description"></textarea>
+          </div>
+          
+          <div class="form-field">
+            <label>Work Done</label>
+            <input type="text" id="work-done" placeholder="e.g., 80%" />
+          </div>
+          
+          <div class="form-field">
+            <label>Expiration Days</label>
+            <input type="number" id="exp-days" min="0" placeholder="30" />
+          </div>
+          
+          <div class="form-field">
+            <label>Payment Terms</label>
+            <input type="text" id="payment-terms" placeholder="e.g., Net 30" />
+          </div>
+          
+          <div class="form-field">
+            <label>Client Year</label>
+            <input type="text" id="client-year" placeholder="2025" />
+          </div>
+          
+          <div class="form-field full">
+            <label>Comment</label>
+            <textarea id="comment" rows="2" placeholder="Additional notes"></textarea>
+          </div>
+        </div>
+      </form>
+    </div>
+    
+    <div class="modal-footer">
+      <button type="button" class="po-btn" id="modal-cancel">Cancel</button>
+      <button type="button" class="po-btn primary" id="modal-save">
+        <span id="save-text">Save PO</span>
+        <span id="save-spinner" style="display:none;" class="spinner"></span>
+      </button>
     </div>
   </div>
 </div>
 
+<!-- Bulk Import Modal -->
+<div class="modal-overlay" id="bulk-import-modal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h3>Bulk Import POs from CSV</h3>
+      <button type="button" class="po-btn" id="bulk-modal-close" style="padding:6px 10px;">✖️</button>
+    </div>
+    
+    <div class="modal-body">
+      <!-- Step 1: Upload CSV -->
+      <div id="bulk-step-1">
+        <h4 style="margin:0 0 16px 0;font-size:16px;font-weight:600;">Step 1: Upload CSV File</h4>
+        <div class="csv-upload-area" id="bulk-csv-upload-area">
+          <input type="file" id="bulk-csv-input" accept=".csv" style="display:none;" />
+          <div>
+            <div style="font-size:32px;margin-bottom:8px;">📥</div>
+            <div style="font-weight:500;margin-bottom:4px;">Drop CSV file here or click to browse</div>
+            <div style="font-size:12px;color:var(--muted);">Supports .csv files up to 50MB</div>
+          </div>
+        </div>
+        <div id="bulk-csv-status" style="margin-top:8px;font-size:13px;"></div>
+      </div>
+
+      <!-- Step 2: Select Customer & Account -->
+      <div id="bulk-step-2" style="display:none;">
+        <h4 style="margin:0 0 16px 0;font-size:16px;font-weight:600;">Step 2: Select Customer & Account</h4>
+        
+        <!-- CSV Summary -->
+        <div class="csv-summary">
+          <h4>✅ CSV Parsed Successfully</h4>
+          <div class="csv-summary-grid">
+            <div class="csv-stat">
+              <div class="csv-stat-value" id="bulk-csv-total-records">0</div>
+              <div class="csv-stat-label">Total Records</div>
+            </div>
+            <div class="csv-stat">
+              <div class="csv-stat-value" id="bulk-csv-unique-accounts">0</div>
+              <div class="csv-stat-label">Unique Accounts</div>
+            </div>
+            <div class="csv-stat">
+              <div class="csv-stat-value" id="bulk-csv-unique-pos">0</div>
+              <div class="csv-stat-label">PO Numbers</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Customer Selection -->
+        <div class="form-field" style="margin-top:20px;">
+          <label>Customer *</label>
+          <select id="bulk-customer" style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:14px;width:100%;">
+            <option value="">-- Select Customer --</option>
+            {% for customer in customers %}
+            <option value="{{ customer.id }}">{{ customer.name }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" id="bulk-customer-new" placeholder="Or enter new customer name" 
+                 style="margin-top:8px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:14px;width:100%;" />
+        </div>
+
+        <!-- Account Selection -->
+        <div class="form-field" style="margin-top:16px;">
+          <label>Filter by Account (Optional)</label>
+          <select id="bulk-account-filter" style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:14px;width:100%;">
+            <option value="">-- All Accounts (Import All) --</option>
+          </select>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px;">
+            Select a specific account to import only its POs, or leave blank to import all
+          </div>
+        </div>
+
+        <!-- Records Preview -->
+        <div style="margin-top:20px;">
+          <h4 style="margin:0 0 12px 0;font-size:14px;font-weight:600;">
+            Records to Import: <span id="bulk-import-count">0</span>
+          </h4>
+          <div class="record-list" id="bulk-record-preview" style="max-height:250px;"></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="modal-footer">
+      <button type="button" class="po-btn" id="bulk-modal-cancel">Cancel</button>
+      <button type="button" class="po-btn" id="bulk-back-btn" style="display:none;">
+        ← Back
+      </button>
+      <button type="button" class="po-btn primary" id="bulk-next-btn">
+        Next →
+      </button>
+      <button type="button" class="po-btn primary" id="bulk-import-btn" style="display:none;">
+        <span id="bulk-import-text">Import <span id="bulk-import-count-btn">0</span> POs</span>
+        <span id="bulk-import-spinner" style="display:none;" class="spinner"></span>
+      </button>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+const csrftoken = '{{ csrf_token }}';
 
-// Store the clear filters URL as a JavaScript variable
-var clearFiltersUrl = '{% url "purchase_orders:list" %}';
+let selectedRows = new Set();
+let csvData = null; // Store parsed CSV data
+let selectedRecordIndex = null; // Track selected record
 
-// Notification functionality
-let notificationInterval;
+// Column Toggle Management
+let visibleCols = JSON.parse(localStorage.getItem('po-visible-cols') || '{}');
 
-function initNotifications() {
-  // Load initial notifications
-  loadNotifications();
+function updateColumnVisibility() {
+  const allCols = ['project', 'sdm', 'billto', 'billaddr', 'about', 'workdone', 'comment', 'expdays'];
   
-  // Set up polling for new notifications every 30 seconds
-  notificationInterval = setInterval(loadNotifications, 30000);
-  
-  // Set up click handlers
-  const notificationBell = document.getElementById('notificationBell');
-  if (notificationBell) {
-    notificationBell.addEventListener('click', toggleNotificationDropdown);
-  }
-  
-  // Close dropdown when clicking outside
-  document.addEventListener('click', function(event) {
-    const dropdown = document.getElementById('notificationDropdown');
-    const bell = document.getElementById('notificationBell');
+  allCols.forEach(col => {
+    const isVisible = visibleCols[col] === true;
     
-    if (dropdown && bell && !bell.contains(event.target)) {
-      dropdown.classList.remove('show');
-    }
-  });
-}
-
-function loadNotifications() {  
-  fetch('/purchase-orders/api/notifications/')
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      return response.json();
-    })
-    .then(data => {
-      if (data.success) {
-        updateNotificationBadge(data.unread_count);
-        renderNotifications(data.notifications);
+    // Update header
+    const headerCells = document.querySelectorAll(`th[data-col="${col}"]`);
+    headerCells.forEach(cell => {
+      if (isVisible) {
+        cell.classList.remove('hidden');
       } else {
-        console.error('API returned error:', data.error);
+        cell.classList.add('hidden');
       }
-    })
-    .catch(error => {
-      console.error('Error loading notifications:', error);
-      // Set badge to 0 on error to avoid confusion
-      updateNotificationBadge(0);
     });
+    
+    // Update body cells
+    const bodyCells = document.querySelectorAll(`td[data-col="${col}"]`);
+    bodyCells.forEach(cell => {
+      if (isVisible) {
+        cell.classList.remove('hidden');
+      } else {
+        cell.classList.add('hidden');
+      }
+    });
+  });
+  
+  // Save to localStorage
+  localStorage.setItem('po-visible-cols', JSON.stringify(visibleCols));
 }
 
-function updateNotificationBadge(count) {
-  const badge = document.getElementById('notificationBadge');
-  if (badge) {
-    if (count > 0) {
-      badge.textContent = count > 99 ? '99+' : count;
-      badge.style.display = 'flex';
+function updateSelectionUI() {
+  const count = selectedRows.size;
+  const selectionInfo = document.getElementById('selection-info');
+  const selectedCount = document.getElementById('selected-count');
+  const exportSelectedBtn = document.getElementById('po-export-selected');
+  
+  if (count > 0) {
+    selectionInfo.style.display = 'inline';
+    exportSelectedBtn.style.display = 'inline-flex';
+    selectedCount.textContent = count;
+  } else {
+    selectionInfo.style.display = 'none';
+    exportSelectedBtn.style.display = 'none';
+  }
+  
+  // Update row highlighting
+  document.querySelectorAll('.row-checkbox').forEach(cb => {
+    const tr = cb.closest('tr');
+    if (cb.checked) {
+      tr.classList.add('selected');
     } else {
-      badge.style.display = 'none';
+      tr.classList.remove('selected');
     }
+  });
+}
+
+// Select All functionality
+document.getElementById('select-all').addEventListener('change', (e) => {
+  const checkboxes = document.querySelectorAll('.row-checkbox');
+  checkboxes.forEach(cb => {
+    cb.checked = e.target.checked;
+    if (e.target.checked) {
+      selectedRows.add(cb.value);
+    } else {
+      selectedRows.delete(cb.value);
+    }
+  });
+  updateSelectionUI();
+});
+
+// Individual row selection
+document.getElementById('po-tbody').addEventListener('change', (e) => {
+  if (e.target.classList.contains('row-checkbox')) {
+    if (e.target.checked) {
+      selectedRows.add(e.target.value);
+    } else {
+      selectedRows.delete(e.target.value);
+      document.getElementById('select-all').checked = false;
+    }
+    updateSelectionUI();
+  }
+});
+
+// Export Selected
+document.getElementById('po-export-selected').addEventListener('click', () => {
+  if (selectedRows.size === 0) {
+    alert('Please select at least one PO to export');
+    return;
+  }
+  
+  const ids = Array.from(selectedRows).join(',');
+  window.location.href = `{% url "purchase_orders:export" %}?ids=${ids}`;
+});
+
+// Initialize checkboxes from localStorage
+document.querySelectorAll('.col-toggle').forEach(checkbox => {
+  const col = checkbox.dataset.col;
+  checkbox.checked = visibleCols[col] === true;
+  
+  checkbox.addEventListener('change', (e) => {
+    visibleCols[e.target.dataset.col] = e.target.checked;
+    updateColumnVisibility();
+  });
+});
+
+// Show More Info Dropdown Toggle
+const showMoreBtn = document.getElementById('showMoreBtn');
+const showMoreDropdown = document.getElementById('showMoreDropdown');
+
+showMoreBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  showMoreDropdown.classList.toggle('active');
+});
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.show-more-wrapper')) {
+    showMoreDropdown.classList.remove('active');
+  }
+});
+
+// Show All button
+document.getElementById('showFullBtn').addEventListener('click', () => {
+  document.querySelectorAll('.col-toggle').forEach(cb => {
+    cb.checked = true;
+    visibleCols[cb.dataset.col] = true;
+  });
+  updateColumnVisibility();
+});
+
+// Revert button
+document.getElementById('revertBtn').addEventListener('click', () => {
+  document.querySelectorAll('.col-toggle').forEach(cb => {
+    cb.checked = false;
+    visibleCols[cb.dataset.col] = false;
+  });
+  updateColumnVisibility();
+});
+
+// Initialize column visibility on page load
+updateColumnVisibility();
+
+// Custom Currency Handler
+const currencySelect = document.getElementById('currency');
+const currencyCustomInput = document.getElementById('currency-custom');
+
+currencySelect.addEventListener('change', (e) => {
+  if (e.target.value === 'CUSTOM') {
+    currencyCustomInput.classList.add('show');
+    currencyCustomInput.focus();
+  } else {
+    currencyCustomInput.classList.remove('show');
+    currencyCustomInput.value = '';
+  }
+});
+
+// Modal Management
+const modal = document.getElementById('po-modal');
+const modalTitle = document.getElementById('modal-title');
+const poIdInput = document.getElementById('po-id');
+let isEditMode = false;
+
+function openModal(editMode = false, poId = null) {
+  isEditMode = editMode;
+  modalTitle.textContent = editMode ? 'Edit PO' : 'Create New PO';
+  modal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+  
+  if (editMode && poId) {
+    // Hide CSV section when editing
+    document.getElementById('csv-section').style.display = 'none';
+    loadPOData(poId);
+  } else {
+    // Show CSV section when creating new
+    document.getElementById('csv-section').style.display = 'block';
+    resetForm();
   }
 }
 
-function renderNotifications(notifications) {
-  const container = document.getElementById('notificationsList');
+function closeModal() {
+  modal.classList.remove('active');
+  document.body.style.overflow = '';
+  resetForm();
+}
+
+function resetForm() {
+  document.getElementById('po-form').reset();
+  poIdInput.value = '';
+  document.getElementById('customer-new').value = '';
+  document.getElementById('account-new').value = '';
+  document.getElementById('csv-status').innerHTML = '';
+  document.getElementById('csv-summary').style.display = 'none';
+  document.getElementById('record-selector').style.display = 'none';
+  currencyCustomInput.classList.remove('show');
+  currencyCustomInput.value = '';
+  csvData = null;
+  selectedRecordIndex = null;
+  isEditMode = false;
+}
+
+// Event Listeners
+document.getElementById('po-new').addEventListener('click', () => openModal(false));
+document.getElementById('modal-close').addEventListener('click', closeModal);
+document.getElementById('modal-cancel').addEventListener('click', closeModal);
+
+// Close modal on overlay click
+modal.addEventListener('click', (e) => {
+  if (e.target === modal) closeModal();
+});
+
+// CSV Upload
+const csvUploadArea = document.getElementById('csv-upload-area');
+const csvInput = document.getElementById('csv-input');
+const csvStatus = document.getElementById('csv-status');
+
+csvUploadArea.addEventListener('click', () => csvInput.click());
+
+csvUploadArea.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  csvUploadArea.classList.add('dragover');
+});
+
+csvUploadArea.addEventListener('dragleave', () => {
+  csvUploadArea.classList.remove('dragover');
+});
+
+csvUploadArea.addEventListener('drop', (e) => {
+  e.preventDefault();
+  csvUploadArea.classList.remove('dragover');
+  if (e.dataTransfer.files.length) {
+    csvInput.files = e.dataTransfer.files;
+    uploadCSV(e.dataTransfer.files[0]);
+  }
+});
+
+csvInput.addEventListener('change', (e) => {
+  if (e.target.files.length) {
+    uploadCSV(e.target.files[0]);
+  }
+});
+
+async function uploadCSV(file) {
+  const formData = new FormData();
+  formData.append('csv_file', file);
   
-  if (!container) {
-    console.error('Notifications container not found');
+  csvStatus.innerHTML = '<span style="color:var(--brand);">⏳ Uploading and parsing CSV...</span>';
+  
+  try {
+    const response = await fetch('{% url "purchase_orders:upload_csv" %}', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrftoken },
+      body: formData
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      csvStatus.innerHTML = '';
+      csvData = result.data;
+      displayCSVSummary(result.data);
+      displayRecordSelector(result.data);
+    } else {
+      csvStatus.innerHTML = `<span style="color:#dc2626;">❌ ${result.error}</span>`;
+    }
+  } catch (error) {
+    csvStatus.innerHTML = `<span style="color:#dc2626;">❌ Upload failed: ${error.message}</span>`;
+  }
+}
+
+function displayCSVSummary(data) {
+  const summaryBox = document.getElementById('csv-summary');
+  
+  // Calculate statistics
+  const records = data.po_records || [];
+  const uniqueAccounts = new Set(records.map(r => r.account_name).filter(a => a)).size;
+  const uniquePOs = new Set(records.map(r => r.po_number).filter(p => p)).size;
+  const currencies = [...new Set(records.map(r => r.currency).filter(c => c))].join(', ');
+  
+  document.getElementById('csv-total-records').textContent = records.length;
+  document.getElementById('csv-unique-accounts').textContent = uniqueAccounts;
+  document.getElementById('csv-unique-pos').textContent = uniquePOs;
+  document.getElementById('csv-customer-name').textContent = data.customer_name || 'N/A';
+  document.getElementById('csv-currencies').textContent = currencies || 'N/A';
+  
+  summaryBox.style.display = 'block';
+}
+
+function displayRecordSelector(data) {
+  const selectorBox = document.getElementById('record-selector');
+  const recordList = document.getElementById('record-list');
+  
+  const records = data.po_records || [];
+  
+  if (records.length === 0) {
+    recordList.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);">No records found in CSV</div>';
+    selectorBox.style.display = 'block';
     return;
   }
   
-  if (notifications.length === 0) {
-    container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted)">No new notifications</div>';
-    return;
-  }
+  recordList.innerHTML = '';
   
-  container.innerHTML = notifications.map(notification => `
-    <div class="notification-item ${notification.priority_class}" onclick="handleNotificationClick(${notification.id}, '${notification.po_detail_url}')">
-      <div class="notification-message">${notification.message}</div>
-      <div class="notification-meta">
-        ${notification.customer_name} • ${notification.time_ago}
-        <span style="float:right">$${notification.remaining_balance} remaining</span>
+  records.forEach((record, index) => {
+    const item = document.createElement('div');
+    item.className = 'record-item';
+    item.dataset.index = index;
+    
+    const account = record.account_name || 'No Account';
+    const poNumber = record.po_number || 'No PO Number';
+    const currency = record.currency || 'USD';
+    const total = record.total_amount ? parseFloat(record.total_amount).toFixed(2) : '0.00';
+    const balance = record.remaining_balance ? parseFloat(record.remaining_balance).toFixed(2) : '0.00';
+    
+    item.innerHTML = `
+      <div class="record-item-header">
+        <div class="record-account">${account}</div>
+        <div class="record-po">${poNumber}</div>
       </div>
-    </div>
-  `).join('');
-}
-
-function toggleNotificationDropdown() {
-  const dropdown = document.getElementById('notificationDropdown');
-  if (dropdown) {
-    dropdown.classList.toggle('show');
-  }
-}
-
-function handleNotificationClick(notificationId, poDetailUrl) {
-  
-  // Mark notification as read
-  markNotificationAsRead(notificationId);
-  
-  // Close dropdown
-  toggleNotificationDropdown();
-  
-  // Optionally navigate to the PO detail page
-  // window.location.href = poDetailUrl;
-}
-
-function markNotificationAsRead(notificationId) {
-  const csrfToken = getCsrfToken();
-  
-  if (!csrfToken) {
-    console.error('CSRF token not found');
-    return;
-  }
-  
-  fetch(`/purchase-orders/api/notifications/${notificationId}/read/`, {
-    method: 'POST',
-    headers: {
-      'X-CSRFToken': csrfToken,
-      'Content-Type': 'application/json'
-    }
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      loadNotifications(); // Refresh notifications
-    } else {
-      console.error('Error marking notification as read:', data.error);
-    }
-  })
-  .catch(error => {
-    console.error('Error marking notification as read:', error);
+      <div class="record-details">
+        <span>💰 ${currency} ${total}</span>
+        <span>📊 Balance: ${currency} ${balance}</span>
+        <span>👤 ${record.sdm || 'No SDM'}</span>
+      </div>
+    `;
+    
+    item.addEventListener('click', () => selectRecord(index));
+    recordList.appendChild(item);
   });
+  
+  selectorBox.style.display = 'block';
 }
 
-function markAllAsRead() {
-  const csrfToken = getCsrfToken();
+function selectRecord(index) {
+  selectedRecordIndex = index;
   
-  if (!csrfToken) {
-    console.error('CSRF token not found');
-    return;
+  // Update UI
+  document.querySelectorAll('.record-item').forEach((item, i) => {
+    if (i === index) {
+      item.classList.add('selected');
+    } else {
+      item.classList.remove('selected');
+    }
+  });
+  
+  // Fill form with selected record
+  const record = csvData.po_records[index];
+  fillFormFromRecord(record);
+}
+
+function fillFormFromRecord(record) {
+  // Basic fields
+  if (record.po_number) document.getElementById('po-number').value = record.po_number;
+  
+  // Customer - try to match first, otherwise use custom input
+  const customerSelect = document.getElementById('customer');
+  const customerNewInput = document.getElementById('customer-new');
+  
+  if (csvData.matched_customer_id) {
+    customerSelect.value = csvData.matched_customer_id;
+    customerNewInput.value = ''; // Clear custom input
+    loadAccounts(csvData.matched_customer_id, record.account_name);
+  } else if (csvData.customer_name) {
+    // Try to find matching customer by name
+    let matchedCustomer = false;
+    for (let option of customerSelect.options) {
+      if (option.text.toLowerCase().trim() === csvData.customer_name.toLowerCase().trim()) {
+        customerSelect.value = option.value;
+        customerNewInput.value = ''; // Clear custom input
+        matchedCustomer = true;
+        loadAccounts(option.value, record.account_name);
+        break;
+      }
+    }
+    
+    if (!matchedCustomer) {
+      // No match found, use custom input
+      customerSelect.value = '';
+      customerNewInput.value = csvData.customer_name;
+    }
   }
   
-  fetch('/purchase-orders/api/notifications/mark-all-read/', {
-    method: 'POST',
-    headers: {
-      'X-CSRFToken': csrfToken,
-      'Content-Type': 'application/json'
-    }
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      loadNotifications(); // Refresh notifications
-      toggleNotificationDropdown(); // Close dropdown
-    } else {
-      console.error('Error marking all notifications as read:', data.error);
-    }
-  })
-  .catch(error => {
-    console.error('Error marking all notifications as read:', error);
-  });
+  // Account - try to match or use custom input
+  if (record.account_name) {
+    document.getElementById('account-new').value = record.account_name;
+    // The loadAccounts function will try to auto-select if match is found
+  }
+  
+  // Currency - handle custom currencies
+  const currencyValue = record.currency || 'USD';
+  const currencyOptions = Array.from(document.getElementById('currency').options).map(opt => opt.value);
+  
+  if (currencyOptions.includes(currencyValue)) {
+    document.getElementById('currency').value = currencyValue;
+  } else {
+    document.getElementById('currency').value = 'CUSTOM';
+    currencyCustomInput.classList.add('show');
+    currencyCustomInput.value = currencyValue;
+  }
+  
+  // Financial data
+  if (record.total_amount) document.getElementById('total').value = record.total_amount;
+  if (record.spent_amount) document.getElementById('spent').value = record.spent_amount;
+  
+  // Dates
+  if (record.valid_from) document.getElementById('valid-from').value = record.valid_from;
+  if (record.valid_until) document.getElementById('valid-until').value = record.valid_until;
+  
+  // Additional fields
+  if (record.sdm) document.getElementById('sdm').value = record.sdm;
+  if (record.bill_to) document.getElementById('bill-to').value = record.bill_to;
+  if (record.billing_address) document.getElementById('billing-address').value = record.billing_address;
+  if (record.about) document.getElementById('about').value = record.about;
+  if (record.work_done) document.getElementById('work-done').value = record.work_done;
+  if (record.comment) document.getElementById('comment').value = record.comment;
+  if (record.expiration_days) document.getElementById('exp-days').value = record.expiration_days;
+  if (record.payment_terms) document.getElementById('payment-terms').value = record.payment_terms;
+  if (record.client_year) document.getElementById('client-year').value = record.client_year;
+  
+  // Use account_name as project if no project specified
+  if (record.account_name) document.getElementById('project').value = record.account_name;
 }
 
-function getCsrfToken() {
-    // Try multiple methods to get CSRF token
-    
-    // Method 1: From cookie
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, 10) === 'csrftoken=') {
-                cookieValue = decodeURIComponent(cookie.substring(10));
-                break;
-            }
-        }
-    }
-    
-    if (cookieValue) {
-        return cookieValue;
-    }
-    
-    // Method 2: From meta tag
-    const metaToken = document.querySelector('meta[name=csrf-token]');
-    if (metaToken) {
-        return metaToken.getAttribute('content');
-    }
-    
-    // Method 3: From input field
-    const inputToken = document.querySelector('input[name=csrfmiddlewaretoken]');
-    if (inputToken) {
-        return inputToken.value;
-    }
-    
-    console.warn('CSRF token not found');
-    return null;
-}
-
-// Initialize notifications when page loads
-document.addEventListener('DOMContentLoaded', function() {
-  initNotifications();
-});
-
-// Clean up interval when page unloads
-window.addEventListener('beforeunload', function() {
-  if (notificationInterval) {
-    clearInterval(notificationInterval);
+// Load accounts when customer changes
+document.getElementById('customer').addEventListener('change', (e) => {
+  if (e.target.value) {
+    loadAccounts(e.target.value);
   }
 });
 
-// Rest of your existing functions remain the same...
-function clearFilters() {
-  window.location.href = clearFiltersUrl;
-}
-
-function viewPO(poId) {
-  fetch('/purchase-orders/api/' + poId + '/')
-    .then(response => response.json())
-    .then(data => {
-      document.getElementById('poDetailContent').innerHTML = 
-        '<div class="row">' +
-          '<div class="col-md-6">' +
-            '<h6>Basic Information</h6>' +
-            '<table class="table table-sm">' +
-              '<tr><td>PO Number:</td><td><strong>' + data.po_number + '</strong></td></tr>' +
-              '<tr><td>Customer:</td><td>' + data.customer_name + '</td></tr>' +
-              '<tr><td>Account:</td><td>' + (data.account_name || 'N/A') + '</td></tr>' +
-              '<tr><td>Status:</td><td><span class="badge bg-primary">' + data.status + '</span></td></tr>' +
-            '</table>' +
-          '</div>' +
-          '<div class="col-md-6">' +
-            '<h6>Financial Details</h6>' +
-            '<table class="table table-sm">' +
-              '<tr><td>Total Amount:</td><td>$' + data.total_amount + '</td></tr>' +
-              '<tr><td>Remaining:</td><td>$' + data.remaining_balance + '</td></tr>' +
-              '<tr><td>Utilization:</td><td>' + data.utilization_percentage + '%</td></tr>' +
-              '<tr><td>Valid From:</td><td>' + data.valid_from + '</td></tr>' +
-              '<tr><td>Valid Until:</td><td>' + data.valid_until + '</td></tr>' +
-            '</table>' +
-          '</div>' +
-        '</div>' +
-        '<div class="row mt-3">' +
-          '<div class="col-12">' +
-            '<h6>Recent Billing Runs</h6>' +
-            '<div class="table-responsive">' +
-              '<table class="table table-sm">' +
-                '<thead><tr><th>Run ID</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead>' +
-                '<tbody>' +
-                  data.recent_billing_runs.map(function(br) {
-                    return '<tr>' +
-                      '<td>' + br.run_id + '</td>' +
-                      '<td>$' + br.amount + '</td>' +
-                      '<td>' + br.billing_date + '</td>' +
-                      '<td><span class="badge bg-info">' + br.status + '</span></td>' +
-                    '</tr>';
-                  }).join('') +
-                '</tbody>' +
-              '</table>' +
-            '</div>' +
-          '</div>' +
-        '</div>';
+async function loadAccounts(customerId, selectAccountName = null) {
+  try {
+    const response = await fetch(`/customers/api/${customerId}/accounts/`);
+    const result = await response.json();
+    
+    const accountSelect = document.getElementById('account');
+    const accountNewInput = document.getElementById('account-new');
+    accountSelect.innerHTML = '<option value="">-- Select or enter new --</option>';
+    
+    if (result.success) {
+      let matchFound = false;
       
-      document.getElementById('editPOLink').href = '/purchase-orders/' + poId + '/edit/';
-      new bootstrap.Modal(document.getElementById('poDetailModal')).show();
-    })
-    .catch(error => {
-      console.error('Error loading PO details:', error);
-      alert('Error loading purchase order details');
-    });
+      result.accounts.forEach(acc => {
+        const option = document.createElement('option');
+        option.value = acc.id;
+        option.textContent = acc.name;
+        accountSelect.appendChild(option);
+        
+        // Auto-select if name matches (case-insensitive)
+        if (selectAccountName && acc.name.toLowerCase().trim() === selectAccountName.toLowerCase().trim()) {
+          accountSelect.value = acc.id;
+          accountNewInput.value = ''; // Clear custom input since we found a match
+          matchFound = true;
+        }
+      });
+      
+      // If no match was found and we have a selectAccountName, keep it in the custom input
+      if (selectAccountName && !matchFound) {
+        accountNewInput.value = selectAccountName;
+      }
+    }
+  } catch (error) {
+    console.error('Load accounts error:', error);
+  }
 }
 
-function duplicatePO(poId) {
-  if (confirm('Create a duplicate of this purchase order?')) {
-    const csrfToken = getCsrfToken();
+// Load PO data for editing
+async function loadPOData(poId) {
+  try {
+    const response = await fetch(`/purchase-orders/api/${poId}/`);
+    const result = await response.json();
     
-    fetch('/purchase-orders/api/' + poId + '/duplicate/', {
+    if (result.success) {
+      const data = result.data;
+      poIdInput.value = data.id;
+      document.getElementById('po-number').value = data.po_number;
+      document.getElementById('customer').value = data.customer_id;
+      await loadAccounts(data.customer_id);
+      if (data.account_id) document.getElementById('account').value = data.account_id;
+      
+      // Handle currency
+      const currencyOptions = Array.from(currencySelect.options).map(opt => opt.value);
+      if (currencyOptions.includes(data.currency)) {
+        currencySelect.value = data.currency;
+      } else {
+        currencySelect.value = 'CUSTOM';
+        currencyCustomInput.classList.add('show');
+        currencyCustomInput.value = data.currency;
+      }
+      
+      document.getElementById('total').value = data.total_amount;
+      document.getElementById('spent').value = data.spent_amount;
+      document.getElementById('valid-from').value = data.valid_from;
+      document.getElementById('valid-until').value = data.valid_until;
+      document.getElementById('project').value = data.project || '';
+      document.getElementById('sdm').value = data.sdm || '';
+      document.getElementById('bill-to').value = data.bill_to || '';
+      document.getElementById('billing-address').value = data.billing_address || '';
+      document.getElementById('about').value = data.about || '';
+      document.getElementById('work-done').value = data.work_done || '';
+      document.getElementById('comment').value = data.comment || '';
+      if (data.expiration_days) document.getElementById('exp-days').value = data.expiration_days;
+      document.getElementById('payment-terms').value = data.payment_terms || '';
+      document.getElementById('client-year').value = data.client_year || '';
+    }
+  } catch (error) {
+    console.error('Load PO error:', error);
+    alert('Failed to load PO data');
+  }
+}
+
+// Save PO
+document.getElementById('modal-save').addEventListener('click', async () => {
+  // Custom validation since we removed required attribute from customer select
+  const customerSelect = document.getElementById('customer');
+  const customerNew = document.getElementById('customer-new').value.trim();
+  
+  if (!customerSelect.value && !customerNew) {
+    alert('Please select a customer or enter a new customer name');
+    customerSelect.focus();
+    return;
+  }
+  
+  const form = document.getElementById('po-form');
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
+  
+  const saveBtn = document.getElementById('modal-save');
+  const saveText = document.getElementById('save-text');
+  const saveSpinner = document.getElementById('save-spinner');
+  
+  saveBtn.disabled = true;
+  saveText.style.display = 'none';
+  saveSpinner.style.display = 'inline-block';
+  
+  const customerId = customerSelect.value;
+  const accountId = document.getElementById('account').value;
+  const accountNew = document.getElementById('account-new').value.trim();
+  
+  // Get currency value
+  let currencyValue = currencySelect.value;
+  if (currencyValue === 'CUSTOM') {
+    currencyValue = currencyCustomInput.value.trim().toUpperCase();
+    if (!currencyValue || currencyValue.length !== 3) {
+      alert('Please enter a valid 3-letter currency code');
+      saveBtn.disabled = false;
+      saveText.style.display = 'inline';
+      saveSpinner.style.display = 'none';
+      return;
+    }
+  }
+  
+  const data = {
+    po_number: document.getElementById('po-number').value,
+    customer_id: customerId || null,
+    customer_name: customerNew || null,
+    account_id: accountId || null,
+    account_name: accountNew || null,
+    currency: currencyValue,
+    total_amount: parseFloat(document.getElementById('total').value) || 0,
+    spent_amount: parseFloat(document.getElementById('spent').value) || 0,
+    valid_from: document.getElementById('valid-from').value,
+    valid_until: document.getElementById('valid-until').value,
+    project: document.getElementById('project').value,
+    sdm: document.getElementById('sdm').value,
+    bill_to: document.getElementById('bill-to').value,
+    billing_address: document.getElementById('billing-address').value,
+    about: document.getElementById('about').value,
+    work_done: document.getElementById('work-done').value,
+    comment: document.getElementById('comment').value,
+    expiration_days: document.getElementById('exp-days').value ? parseInt(document.getElementById('exp-days').value) : null,
+    payment_terms: document.getElementById('payment-terms').value,
+    client_year: document.getElementById('client-year').value,
+  };
+  
+  try {
+    let url, method;
+    if (isEditMode) {
+      url = `/purchase-orders/api/${poIdInput.value}/update/`;
+      method = 'POST';
+    } else {
+      url = '{% url "purchase_orders:create_po_api" %}';
+      method = 'POST';
+    }
+    
+    const response = await fetch(url, {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrftoken
+      },
+      body: JSON.stringify(data)
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      alert(result.message);
+      window.location.reload();
+    } else {
+      alert('Error: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Save error:', error);
+    alert('Failed to save PO: ' + error.message);
+  } finally {
+    saveBtn.disabled = false;
+    saveText.style.display = 'inline';
+    saveSpinner.style.display = 'none';
+  }
+});
+
+// Table Actions
+document.getElementById('po-tbody').addEventListener('click', async (e) => {
+  const act = e.target?.dataset?.act;
+  if (!act) return;
+  
+  const tr = e.target.closest('tr');
+  const id = tr?.dataset?.id;
+  if (!id) return;
+  
+  if (act === 'edit') {
+    openModal(true, id);
+  }
+  
+  if (act === 'dup') {
+    if (confirm('Duplicate this PO?')) {
+      try {
+        const response = await fetch(`/purchase-orders/api/${id}/`);
+        const result = await response.json();
+        
+        if (result.success) {
+          const data = result.data;
+          openModal(false);
+          
+          // Fill form with duplicated data
+          document.getElementById('customer').value = data.customer_id;
+          await loadAccounts(data.customer_id);
+          if (data.account_id) document.getElementById('account').value = data.account_id;
+          
+          // Handle currency
+          const currencyOptions = Array.from(currencySelect.options).map(opt => opt.value);
+          if (currencyOptions.includes(data.currency)) {
+            currencySelect.value = data.currency;
+          } else {
+            currencySelect.value = 'CUSTOM';
+            currencyCustomInput.classList.add('show');
+            currencyCustomInput.value = data.currency;
+          }
+          
+          document.getElementById('total').value = data.total_amount;
+          document.getElementById('spent').value = 0; // Reset spent
+          document.getElementById('valid-from').value = new Date().toISOString().split('T')[0];
+          const nextYear = new Date();
+          nextYear.setFullYear(nextYear.getFullYear() + 1);
+          document.getElementById('valid-until').value = nextYear.toISOString().split('T')[0];
+          document.getElementById('project').value = data.project || '';
+          document.getElementById('sdm').value = data.sdm || '';
+          document.getElementById('bill-to').value = data.bill_to || '';
+          document.getElementById('billing-address').value = data.billing_address || '';
+          document.getElementById('about').value = data.about || '';
+          document.getElementById('payment-terms').value = data.payment_terms || '';
+          document.getElementById('client-year').value = data.client_year || '';
+        }
+      } catch (error) {
+        alert('Failed to duplicate PO');
+      }
+    }
+  }
+  
+  if (act === 'del') {
+    if (confirm('Delete this PO? This cannot be undone.')) {
+      try {
+        const response = await fetch(`/purchase-orders/api/${id}/delete/`, {
+          method: 'DELETE',
+          headers: { 'X-CSRFToken': csrftoken }
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+          alert(result.message);
+          window.location.reload();
+        } else {
+          alert('Error: ' + result.error);
+        }
+      } catch (error) {
+        alert('Failed to delete PO');
+      }
+    }
+  }
+});
+
+// Filters
+const filterInputs = ['fCustomer', 'fStatus', 'fCurrency', 'fSearch'];
+filterInputs.forEach(id => {
+  document.getElementById(id).addEventListener('change', applyFilters);
+});
+
+document.getElementById('fSearch').addEventListener('input', debounce(applyFilters, 500));
+
+function applyFilters() {
+  const params = new URLSearchParams();
+  const customer = document.getElementById('fCustomer').value;
+  const status = document.getElementById('fStatus').value;
+  const currency = document.getElementById('fCurrency').value;
+  const search = document.getElementById('fSearch').value;
+  
+  if (customer) params.set('customer', customer);
+  if (status) params.set('status', status);
+  if (currency) params.set('currency', currency);
+  if (search) params.set('search', search);
+  
+  window.location.href = '?' + params.toString();
+}
+
+document.getElementById('fClear').addEventListener('click', () => {
+  window.location.href = '{% url "purchase_orders:list" %}';
+});
+
+// Export
+document.getElementById('po-export').addEventListener('click', () => {
+  window.location.href = '{% url "purchase_orders:export" %}';
+});
+
+// Utility
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+// Bulk Import Feature
+let bulkCsvData = null;
+let bulkCurrentStep = 1;
+
+// Open bulk import modal
+document.getElementById('po-bulk-import').addEventListener('click', () => {
+  document.getElementById('bulk-import-modal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+  resetBulkImport();
+});
+
+// Close bulk import modal
+document.getElementById('bulk-modal-close').addEventListener('click', closeBulkModal);
+document.getElementById('bulk-modal-cancel').addEventListener('click', closeBulkModal);
+
+function closeBulkModal() {
+  document.getElementById('bulk-import-modal').classList.remove('active');
+  document.body.style.overflow = '';
+  resetBulkImport();
+}
+
+function resetBulkImport() {
+  bulkCsvData = null;
+  bulkCurrentStep = 1;
+  document.getElementById('bulk-step-1').style.display = 'block';
+  document.getElementById('bulk-step-2').style.display = 'none';
+  document.getElementById('bulk-next-btn').style.display = 'inline-flex';
+  document.getElementById('bulk-import-btn').style.display = 'none';
+  document.getElementById('bulk-back-btn').style.display = 'none';
+  document.getElementById('bulk-csv-status').innerHTML = '';
+  document.getElementById('bulk-customer').value = '';
+  document.getElementById('bulk-customer-new').value = '';
+  document.getElementById('bulk-account-filter').innerHTML = '<option value="">-- All Accounts (Import All) --</option>';
+}
+
+// Bulk CSV Upload
+const bulkCsvUploadArea = document.getElementById('bulk-csv-upload-area');
+const bulkCsvInput = document.getElementById('bulk-csv-input');
+
+bulkCsvUploadArea.addEventListener('click', () => bulkCsvInput.click());
+
+bulkCsvUploadArea.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  bulkCsvUploadArea.classList.add('dragover');
+});
+
+bulkCsvUploadArea.addEventListener('dragleave', () => {
+  bulkCsvUploadArea.classList.remove('dragover');
+});
+
+bulkCsvUploadArea.addEventListener('drop', (e) => {
+  e.preventDefault();
+  bulkCsvUploadArea.classList.remove('dragover');
+  if (e.dataTransfer.files.length) {
+    bulkCsvInput.files = e.dataTransfer.files;
+    uploadBulkCSV(e.dataTransfer.files[0]);
+  }
+});
+
+bulkCsvInput.addEventListener('change', (e) => {
+  if (e.target.files.length) {
+    uploadBulkCSV(e.target.files[0]);
+  }
+});
+
+async function uploadBulkCSV(file) {
+  const formData = new FormData();
+  formData.append('csv_file', file);
+  
+  const statusDiv = document.getElementById('bulk-csv-status');
+  statusDiv.innerHTML = '<span style="color:var(--brand);">⏳ Uploading and parsing CSV...</span>';
+  
+  try {
+    const response = await fetch('{% url "purchase_orders:upload_csv" %}', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrftoken },
+      body: formData
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      statusDiv.innerHTML = '<span style="color:#059669;">✅ CSV uploaded successfully</span>';
+      bulkCsvData = result.data;
+      displayBulkCSVSummary(result.data);
+    } else {
+      statusDiv.innerHTML = `<span style="color:#dc2626;">❌ ${result.error}</span>`;
+    }
+  } catch (error) {
+    statusDiv.innerHTML = `<span style="color:#dc2626;">❌ Upload failed: ${error.message}</span>`;
+  }
+}
+
+function displayBulkCSVSummary(data) {
+  console.log('displayBulkCSVSummary called');
+  
+  const records = data.po_records || [];
+  const uniqueAccounts = new Set(records.map(r => r.account_name).filter(a => a)).size;
+  const uniquePOs = new Set(records.map(r => r.po_number).filter(p => p)).size;
+  
+  document.getElementById('bulk-csv-total-records').textContent = records.length;
+  document.getElementById('bulk-csv-unique-accounts').textContent = uniqueAccounts;
+  document.getElementById('bulk-csv-unique-pos').textContent = uniquePOs;
+  
+  console.log(`Summary: ${records.length} records, ${uniqueAccounts} unique accounts, ${uniquePOs} unique POs`);
+  
+  // NOTE: Don't populate account dropdown here - it's in Step 2 which is hidden
+  // It will be populated when user clicks "Next" button
+}
+
+function populateBulkAccountDropdown(data) {
+  console.log('populateBulkAccountDropdown called with data:', data);
+  
+  const accountFilter = document.getElementById('bulk-account-filter');
+  if (!accountFilter) {
+    console.error('bulk-account-filter element not found!');
+    return;
+  }
+  
+  accountFilter.innerHTML = '<option value="">-- All Accounts (Import All) --</option>';
+  
+  if (!data || !data.po_records) {
+    console.warn('No data or po_records found');
+    return;
+  }
+  
+  console.log(`Total po_records: ${data.po_records.length}`);
+  
+  // Get unique account names from CSV data
+  const uniqueAccounts = new Set();
+  data.po_records.forEach((record, index) => {
+    const accountName = record.account_name;
+    if (index < 5) {
+      console.log(`Record ${index} account_name:`, accountName);
+    }
+    if (accountName && accountName.trim()) {
+      uniqueAccounts.add(accountName.trim());
+    }
+  });
+  
+  console.log(`Found ${uniqueAccounts.size} unique accounts:`, Array.from(uniqueAccounts).slice(0, 10));
+  
+  // Sort accounts alphabetically
+  const sortedAccounts = Array.from(uniqueAccounts).sort();
+  
+  // Add to dropdown
+  sortedAccounts.forEach(accountName => {
+    const option = document.createElement('option');
+    option.value = accountName;
+    option.textContent = accountName;
+    accountFilter.appendChild(option);
+  });
+  
+  console.log(`✓ Populated ${sortedAccounts.length} accounts in bulk dropdown`);
+  console.log('Dropdown now has', accountFilter.options.length, 'options');
+}
+
+// Navigation buttons
+document.getElementById('bulk-next-btn').addEventListener('click', () => {
+  if (!bulkCsvData) {
+    alert('Please upload a CSV file first');
+    return;
+  }
+  
+  bulkCurrentStep = 2;
+  document.getElementById('bulk-step-1').style.display = 'none';
+  document.getElementById('bulk-step-2').style.display = 'block';
+  document.getElementById('bulk-next-btn').style.display = 'none';
+  document.getElementById('bulk-import-btn').style.display = 'inline-flex';
+  document.getElementById('bulk-back-btn').style.display = 'inline-flex';
+  
+  console.log('Populating account dropdown in Step 2...');
+  populateBulkAccountDropdown(bulkCsvData);
+  updateBulkRecordPreview();
+  
+  // Refresh the dropdown if using Bootstrap Select
+  const accountFilter = document.getElementById('bulk-account-filter');
+  if (accountFilter) {
+    if (typeof $ !== 'undefined' && $.fn.selectpicker) {
+      $(accountFilter).selectpicker('refresh'); // Refresh Bootstrap Select
+    } else if (typeof $ !== 'undefined' && $.fn.select2) {
+      $(accountFilter).select2('destroy').select2(); // Reinitialize Select2
+    }
+    accountFilter.style.display = 'block';
+    accountFilter.offsetHeight; // Force reflow
+  }
+});
+
+document.getElementById('bulk-back-btn').addEventListener('click', () => {
+  bulkCurrentStep = 1;
+  document.getElementById('bulk-step-1').style.display = 'block';
+  document.getElementById('bulk-step-2').style.display = 'none';
+  document.getElementById('bulk-next-btn').style.display = 'inline-flex';
+  document.getElementById('bulk-import-btn').style.display = 'none';
+  document.getElementById('bulk-back-btn').style.display = 'none';
+});
+
+// Load accounts for bulk import
+document.getElementById('bulk-customer').addEventListener('change', (e) => {
+  // When customer changes, just update the preview
+  // The account dropdown is already populated from CSV data
+  updateBulkRecordPreview();
+});
+
+// Account filter change
+document.getElementById('bulk-account-filter').addEventListener('change', updateBulkRecordPreview);
+
+function updateBulkRecordPreview() {
+  if (!bulkCsvData) return;
+  
+  const accountFilter = document.getElementById('bulk-account-filter').value;
+  const records = bulkCsvData.po_records || [];
+  
+  // Filter records
+  let filteredRecords = records;
+  if (accountFilter) {
+    filteredRecords = records.filter(r => r.account_name === accountFilter);
+  }
+  
+  // Update count
+  const count = filteredRecords.length;
+  document.getElementById('bulk-import-count').textContent = count;
+  document.getElementById('bulk-import-count-btn').textContent = count;
+  
+  // Display preview
+  const previewDiv = document.getElementById('bulk-record-preview');
+  
+  if (filteredRecords.length === 0) {
+    previewDiv.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);">No records match the filter</div>';
+    return;
+  }
+  
+  previewDiv.innerHTML = '';
+  
+  filteredRecords.forEach((record, index) => {
+    const item = document.createElement('div');
+    item.className = 'record-item';
+    item.style.cursor = 'default';
+    item.style.pointerEvents = 'none';
+    
+    const account = record.account_name || 'No Account';
+    const poNumber = record.po_number || 'No PO Number';
+    const currency = record.currency || 'USD';
+    const total = record.total_amount ? parseFloat(record.total_amount).toFixed(2) : '0.00';
+    const balance = record.remaining_balance ? parseFloat(record.remaining_balance).toFixed(2) : '0.00';
+    
+    item.innerHTML = `
+      <div class="record-item-header">
+        <div class="record-account">${account}</div>
+        <div class="record-po">${poNumber}</div>
+      </div>
+      <div class="record-details">
+        <span>💰 ${currency} ${total}</span>
+        <span>📊 Balance: ${currency} ${balance}</span>
+        <span>👤 ${record.sdm || 'No SDM'}</span>
+      </div>
+    `;
+    
+    previewDiv.appendChild(item);
+  });
+}
+
+// Bulk Import
+document.getElementById('bulk-import-btn').addEventListener('click', async () => {
+  const customerSelect = document.getElementById('bulk-customer');
+  const customerNew = document.getElementById('bulk-customer-new').value.trim();
+  
+  if (!customerSelect.value && !customerNew) {
+    alert('Please select a customer or enter a new customer name');
+    return;
+  }
+  
+  const accountFilter = document.getElementById('bulk-account-filter').value;
+  
+  if (!confirm(`Import ${document.getElementById('bulk-import-count').textContent} POs?`)) {
+    return;
+  }
+  
+  const importBtn = document.getElementById('bulk-import-btn');
+  const importText = document.getElementById('bulk-import-text');
+  const importSpinner = document.getElementById('bulk-import-spinner');
+  
+  importBtn.disabled = true;
+  importText.style.display = 'none';
+  importSpinner.style.display = 'inline-block';
+  
+  try {
+    const data = {
+      customer_id: customerSelect.value || null,
+      customer_name: customerNew || null,
+      account_filter: accountFilter || null
+    };
+    
+    const response = await fetch('{% url "purchase_orders:bulk_create_from_csv" %}', {
       method: 'POST',
       headers: {
-        'X-CSRFToken': csrfToken,
-        'Content-Type': 'application/json'
-      }
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        alert('Purchase order duplicated successfully! New PO: ' + data.new_po_number);
-        location.reload();
-      } else {
-        alert('Error duplicating purchase order: ' + data.error);
-      }
-    })
-    .catch(error => {
-      console.error('Error duplicating PO:', error);
-      alert('Error duplicating purchase order');
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrftoken
+      },
+      body: JSON.stringify(data)
     });
-  }
-}
-
-function deletePO(poId) {
-  if (confirm('Are you sure you want to delete this purchase order? This action cannot be undone.')) {
-    const csrfToken = getCsrfToken();
     
-    fetch('/purchase-orders/api/' + poId + '/delete/', {
-      method: 'DELETE',
-      headers: {
-        'X-CSRFToken': csrfToken,
-        'Content-Type': 'application/json'
+    const result = await response.json();
+    
+    if (result.success) {
+      let message = `Successfully imported ${result.created_pos} POs`;
+      if (result.created_accounts > 0) {
+        message += ` and created ${result.created_accounts} new accounts`;
       }
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        alert('Purchase order deleted successfully!');
-        location.reload();
-      } else {
-        alert('Error deleting purchase order: ' + data.error);
+      if (result.errors > 0) {
+        message += `\n\nWarning: ${result.errors} errors occurred`;
+        if (result.error_details) {
+          message += ':\n' + result.error_details.slice(0, 5).join('\n');
+        }
       }
-    })
-    .catch(error => {
-      console.error('Error deleting PO:', error);
-      alert('Error deleting purchase order');
-    });
-  }
-}
-
-// Auto-submit search on Enter
-const searchInput = document.querySelector('.po-search input');
-if (searchInput) {
-  searchInput.addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-      this.form.submit();
+      alert(message);
+      closeBulkModal();
+      window.location.reload();
+    } else {
+      alert('Error: ' + result.error);
     }
-  });
-}</script>
+  } catch (error) {
+    console.error('Bulk import error:', error);
+    alert('Failed to import POs: ' + error.message);
+  } finally {
+    importBtn.disabled = false;
+    importText.style.display = 'inline';
+    importSpinner.style.display = 'none';
+  }
+});
+</script>
 {% endblock %}

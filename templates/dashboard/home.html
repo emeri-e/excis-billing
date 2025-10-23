@@ -52,7 +52,7 @@
                 <div class="card">
                     <div class="card-header">
                         <h4 class="card-title">Recent Billing Files</h4>
-                        <a href="#" class="btn btn-primary">View All</a>
+                        <a href="{% url 'billing:list' %}" class="btn btn-primary">View All</a>
                     </div>
                     <div class="card-body">
                         <table class="table">
@@ -96,7 +96,7 @@
                     </div>
                     <div class="card-body">
                         <a href="{% url 'billing:create' %}" class="btn btn-primary">Create Billing Run </a>
-                        <a href="{% url 'purchase_orders:create' %}" class="btn btn-primary">Add Purchase Order </a>
+                        <a href="{% url 'purchase_orders:list' %}" class="btn btn-primary">Add Purchase Order </a>
                         <a href="{% url 'customers:create' %}" class="btn btn-primary">Add Customer </a>
                         <a href="{% url 'rate_cards:create' %}" class="btn btn-primary">Create Rate Card </a>
                     </div>
@@ -141,7 +141,7 @@
                 <div class="card">
                     <div class="card-header">
                         <h4 class="card-title">Recent Purchase Orders</h4>
-                        <a href="#" class="btn btn-primary">View All</a>
+                        <a href="{% url 'purchase_orders:list' %}" class="btn btn-primary">View All</a>
                     </div>
                     <div class="card-body">
                         {% for po in recent_pos %}

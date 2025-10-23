@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum, Count, F, Q
+from django.db.models import Sum, Count, F, Q, ExpressionWrapper, DecimalField
 from apps.purchase_orders.models import PurchaseOrder
 from apps.billing.models import BillingRun
 from apps.customers.models import Customer
@@ -26,11 +26,13 @@ def dashboard_home(request):
     pending_approvals = BillingRun.objects.filter(status='pending').count()
     
     # Low balance POs (less than 20% remaining)
+    # remaining_balance = total_amount - spent_amount
+    # utilization = (spent_amount / total_amount) * 100
     low_balance_pos = PurchaseOrder.objects.filter(
         status='active',
-        remaining_balance__gt=0
+        total_amount__gt=F('spent_amount')  # Has remaining balance
     ).annotate(
-        utilization_percent=((F('total_amount') - F('remaining_balance')) / F('total_amount')) * 100
+        utilization_percent=(F('spent_amount') / F('total_amount')) * 100
     ).filter(utilization_percent__gte=80).count()
     
     # Draft POs
@@ -65,9 +67,13 @@ def dashboard_home(request):
     # Low balance PO details for alerts
     low_balance_pos_details = PurchaseOrder.objects.filter(
         status='active',
-        remaining_balance__gt=0
+        total_amount__gt=F('spent_amount')  # Has remaining balance
     ).annotate(
-        utilization_percent=((F('total_amount') - F('remaining_balance')) / F('total_amount')) * 100
+        utilization_percent=(F('spent_amount') / F('total_amount')) * 100,
+        remaining_balance=ExpressionWrapper(
+            F('total_amount') - F('spent_amount'),
+            output_field=DecimalField(max_digits=15, decimal_places=2)
+        )
     ).filter(utilization_percent__gte=80).select_related('customer')[:5]
     
     # Expiring POs (expiring in next 30 days)

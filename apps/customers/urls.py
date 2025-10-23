@@ -6,6 +6,7 @@ app_name = 'customers'
 urlpatterns = [
     # Main customer & accounts management page
     path('accounts/', views.customer_accounts_list, name='accounts_list'),
+    path('api/<int:customer_id>/accounts/', views.get_customer_accounts_api, name='customer_accounts_api'),
     
     # Traditional customer management
     path('', views.customer_list, name='list'),
@@ -29,4 +30,5 @@ urlpatterns = [
     # Currency and Country management
     path('currencies/', views.manage_currencies, name='manage_currencies'),
     path('countries/', views.manage_countries, name='manage_countries'),
+
 ]

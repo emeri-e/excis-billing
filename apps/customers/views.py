@@ -17,6 +17,35 @@ from .forms import CustomerForm, AccountForm, ProjectForm, BillingCycleForm, Cur
 logger = logging.getLogger('customers')
 
 @login_required
+def get_customer_accounts_api(request, customer_id):
+    """Get all accounts for a customer"""
+    try:
+        accounts = Account.objects.filter(
+            customer_id=customer_id,
+            is_active=True
+        ).order_by('name')
+        
+        account_data = [
+            {
+                'id': account.id,
+                'name': account.name,
+                'account_id': account.account_id,
+            }
+            for account in accounts
+        ]
+        
+        return JsonResponse({
+            'success': True,
+            'accounts': account_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+@login_required
 def customer_accounts_list(request):
     """Fixed customer & accounts management page"""
     

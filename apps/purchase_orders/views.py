@@ -1,5 +1,6 @@
 import json
-import PyPDF2
+import csv
+import io
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -7,47 +8,35 @@ from django.core.paginator import Paginator
 from django.db.models import Q, Sum, F
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods, require_POST
-from django.views.decorators.csrf import csrf_protect
 from datetime import date, timedelta
-import csv
 import logging
 
-from .models import PurchaseOrder, POBalanceNotification, PurchaseOrderPDF
-from .forms import PurchaseOrderEditForm, PurchaseOrderForm, PurchaseOrderPDFUploadForm
+from .models import PurchaseOrder, POBalanceNotification, PurchaseOrderCSV
 from apps.customers.models import Customer, Account
 
-# Configure logging
 logger = logging.getLogger(__name__)
 
 @login_required
 def purchase_order_list(request):
-    """Enhanced purchase order list with KPIs and filtering"""
+    """Enhanced purchase order list with KPIs"""
     pos = PurchaseOrder.objects.select_related('customer', 'account').order_by('-created_at')
     
-    # Get filter parameters
+    # Filters
     status_filter = request.GET.get('status')
     customer_filter = request.GET.get('customer')
-    account_filter = request.GET.get('account')
+    currency_filter = request.GET.get('currency')
     search_query = request.GET.get('search')
     
-    # Apply filters
     if status_filter:
         pos = pos.filter(status=status_filter)
-    
     if customer_filter:
         pos = pos.filter(customer_id=customer_filter)
-    
-    if account_filter:
-        pos = pos.filter(account_id=account_filter)
-        
+    if currency_filter:
+        pos = pos.filter(currency=currency_filter)
     if search_query:
-        pos = pos.filter(
-            Q(po_number__icontains=search_query) |
-            Q(customer__name__icontains=search_query) |
-            Q(customer__code__icontains=search_query)
-        )
+        pos = pos.filter(Q(po_number__icontains=search_query))
     
-    # Calculate KPIs
+    # KPIs
     all_pos = PurchaseOrder.objects.all()
     today = date.today()
     
@@ -55,30 +44,15 @@ def purchase_order_list(request):
         'active_pos': all_pos.filter(status='active').count(),
         'total_value': all_pos.filter(status__in=['active', 'expiring_soon']).aggregate(
             total=Sum('total_amount'))['total'] or 0,
-        'low_balance_pos': all_pos.filter(
-            remaining_balance__lt=F('total_amount') * 0.2,
-            status='active'
-        ).count(),
-        'expiring_soon': all_pos.filter(
-            valid_until__lte=today + timedelta(days=30),
-            valid_until__gt=today,
-            status__in=['active', 'expiring_soon']
-        ).count(),
+        'low_balance_pos': all_pos.filter(status='low_balance').count(),
+        'expiring_soon': all_pos.filter(status='expiring_soon').count(),
     }
     
-    # Get unread notification count for the current user
+    # Unread notifications
     unread_notifications = POBalanceNotification.objects.filter(
-        is_read=False,
-        purchase_order__created_by=request.user
+        is_read=False
     ).count()
-
-    all_notifications = POBalanceNotification.objects.all()
-    unread_all = POBalanceNotification.objects.filter(is_read=False)
     
-    logger.debug(f"Total notifications: {all_notifications.count()}")
-    logger.debug(f"Unread notifications: {unread_all.count()}")
-    
-    # Store total count before pagination
     total_count = pos.count()
     
     # Pagination
@@ -86,18 +60,19 @@ def purchase_order_list(request):
     page_number = request.GET.get('page')
     pos = paginator.get_page(page_number)
     
-    # Get filter options
+    # Filter options
     customers = Customer.objects.filter(is_active=True).order_by('name')
-    accounts = Account.objects.filter(is_active=True).select_related('customer').order_by('customer__name', 'name')
+    currencies = PurchaseOrder.objects.values_list('currency', flat=True).distinct().order_by('currency')
+    print("Distinct currencies:", list(currencies))
     
     context = {
         'purchase_orders': pos,
         'kpis': kpis,
         'customers': customers,
-        'accounts': accounts,
+        'currencies': currencies,
         'status_filter': status_filter,
         'customer_filter': customer_filter,
-        'account_filter': account_filter,
+        'currency_filter': currency_filter,
         'search_query': search_query,
         'status_choices': PurchaseOrder.STATUS_CHOICES,
         'total_count': total_count,
@@ -105,525 +80,651 @@ def purchase_order_list(request):
     }
     return render(request, 'purchase_orders/list.html', context)
 
-@login_required
-def create_purchase_order(request):
-    """Create a new purchase order with PDF upload support and proper session handling"""
-    
-    # Get PDF data from session - ensure it persists
-    pdf_data = request.session.get('extracted_pdf_data')
-    pdf_form = PurchaseOrderPDFUploadForm()
-    
-    logger.debug(f"create_purchase_order: Session PDF data exists: {pdf_data is not None}")
-    if pdf_data:
-        logger.debug(f"create_purchase_order: PDF data keys: {list(pdf_data.keys())}")
-    
-    if request.method == 'POST':        
-        # Handle PDF upload
-        if 'upload_pdf' in request.POST:
-            pdf_form = PurchaseOrderPDFUploadForm(request.POST, request.FILES)
-            
-            if pdf_form.is_valid():
-                try:
-                    pdf_file = pdf_form.cleaned_data['pdf_file']
-                    
-                    # Create PDF upload instance
-                    pdf_upload = PurchaseOrderPDF(
-                        pdf_file=pdf_file,
-                        original_filename=pdf_file.name,
-                        uploaded_by=request.user
-                    )
-                    pdf_upload.save()
-                    
-                    extracted_data = pdf_upload.extract_pdf_data()
-                    
-                    logger.info(f"PDF extraction completed. Success: {pdf_upload.extraction_success}")
-                    logger.info(f"Extracted data: {extracted_data}")
-                    
-                    if extracted_data and pdf_upload.extraction_success:
-                        # Try to match customer from supplier name
-                        matched_customer = None
-                        if 'supplier' in extracted_data and extracted_data['supplier']:
-                            supplier_name = extracted_data['supplier'].strip()
-                            logger.info(f"Attempting to match customer with supplier: {supplier_name}")
-                            
-                            # Try exact match first
-                            try:
-                                matched_customer = Customer.objects.get(
-                                    name__iexact=supplier_name,
-                                    is_active=True
-                                )
-                                logger.info(f"✓ Exact customer match found: {matched_customer.name}")
-                            except Customer.DoesNotExist:
-                                # Try partial match
-                                matched_customers = Customer.objects.filter(
-                                    name__icontains=supplier_name[:20],  # Use first 20 chars
-                                    is_active=True
-                                )
-                                if matched_customers.count() == 1:
-                                    matched_customer = matched_customers.first()
-                                    logger.info(f"✓ Partial customer match found: {matched_customer.name}")
-                                elif matched_customers.count() > 1:
-                                    logger.warning(f"Multiple customer matches found for '{supplier_name}', not auto-selecting")
-                                else:
-                                    logger.warning(f"No customer match found for '{supplier_name}'")
-                            except Customer.MultipleObjectsReturned:
-                                logger.warning(f"Multiple exact matches found for '{supplier_name}'")
-                        
-                        # Add matched customer to extracted data
-                        if matched_customer:
-                            extracted_data['matched_customer_id'] = matched_customer.id
-                            extracted_data['matched_customer_name'] = matched_customer.name
-                        
-                        # Store PDF data in session with explicit save
-                        request.session['current_pdf_upload_id'] = pdf_upload.id
-                        request.session['extracted_pdf_data'] = extracted_data
-                        request.session.modified = True
-                        
-                        # Force session save
-                        request.session.save()
-                        
-                        logger.info(f"Stored PDF data in session. Keys: {list(extracted_data.keys())}")
 
-                        # Build success message
-                        extracted_fields = []
-                        if extracted_data.get('reference_number'):
-                            extracted_fields.append(f"Order: {extracted_data['reference_number']}")
-                        if extracted_data.get('currency') and extracted_data.get('total_amount'):
-                            extracted_fields.append(f"{extracted_data['currency']} {extracted_data['total_amount']:,.2f}")
-                        if extracted_data.get('valid_from'):
-                            extracted_fields.append(f"From: {extracted_data['valid_from']}")
-                        if extracted_data.get('valid_until'):
-                            extracted_fields.append(f"Until: {extracted_data['valid_until']}")
-                        if extracted_data.get('supplier'):
-                            supplier_short = extracted_data['supplier'][:20] + "..." if len(extracted_data['supplier']) > 20 else extracted_data['supplier']
-                            extracted_fields.append(f"Supplier: {supplier_short}")
-                        if matched_customer:
-                            extracted_fields.append(f"Matched Customer: {matched_customer.name}")
-                        
-                        if extracted_fields:
-                            success_msg = f"PDF processed successfully! Extracted: {', '.join(extracted_fields)}"
-                            messages.success(request, success_msg)
-                        else:
-                            warning_msg = "PDF uploaded but no data could be extracted."
-                            messages.warning(request, warning_msg)
-                            logger.warning(warning_msg)
-                    
-                    else:
-                        error_msg = f"PDF extraction failed: {pdf_upload.extraction_errors}"
-                        messages.error(request, error_msg)
-                        logger.error(error_msg)
-                    
-                    # Redirect to same page to show results
-                    return redirect('purchase_orders:create')
-                
-                except Exception as e:
-                    error_msg = f"Error processing PDF: {str(e)}"
-                    logger.error(error_msg, exc_info=True)
-                    messages.error(request, error_msg)
-                    
-                    # Clean up session on error
-                    for key in ['current_pdf_upload_id', 'extracted_pdf_data']:
-                        request.session.pop(key, None)
-                    request.session.modified = True
-                    request.session.save()
-            
-            else:
-                logger.error(f"PDF form validation failed: {pdf_form.errors}")
-                for field, errors in pdf_form.errors.items():
-                    for error in errors:
-                        messages.error(request, f"PDF Upload - {field}: {error}")
+@login_required
+@require_POST
+def upload_csv(request):
+    """Handle CSV upload and parse data"""
+    try:
+        if 'csv_file' not in request.FILES:
+            return JsonResponse({'success': False, 'error': 'No file uploaded'}, status=400)
         
-        # Handle PO creation
-        elif 'create_po' in request.POST:            
-            form = PurchaseOrderForm(request.POST, pdf_data=pdf_data)
-            
-            if form.is_valid():
-                po = form.save(commit=False)
-                po.created_by = request.user
-                po.status = 'active' if request.POST.get('create_po') == 'active' else 'draft'
-                po.save()
-                
-                # Associate PDF with PO if available
-                pdf_upload_id = request.session.get('current_pdf_upload_id')
-                if pdf_upload_id:
-                    try:
-                        pdf_upload = PurchaseOrderPDF.objects.get(id=pdf_upload_id)
-                        pdf_upload.purchase_order = po
-                        pdf_upload.save()
-                        logger.info(f"Associated PDF upload {pdf_upload_id} with PO {po.po_number}")
-                    except PurchaseOrderPDF.DoesNotExist:
-                        logger.warning(f"PDF upload {pdf_upload_id} not found")
-                
-                # Clear session data after successful creation
-                for key in ['current_pdf_upload_id', 'extracted_pdf_data']:
-                    request.session.pop(key, None)
-                request.session.modified = True
-                request.session.save()
-                
-                messages.success(request, f"Purchase Order {po.po_number} created successfully! Status: {po.get_status_display()}")
-                return redirect('purchase_orders:list')
-            
-            else:
-                logger.error(f"PO form validation failed: {form.errors}")
-                for field, errors in form.errors.items():
-                    field_name = field.replace('_', ' ').title()
-                    for error in errors:
-                        messages.error(request, f"{field_name}: {error}")
-    
-    # Re-fetch PDF data in case it was just stored
-    current_pdf_data = request.session.get('extracted_pdf_data')
-    
-    # Prepare initial form data
-    form_initial = {}
-    matched_customer_id = None
-    
-    if current_pdf_data:
-        logger.info(f"Preparing form with PDF data. Keys: {list(current_pdf_data.keys())}")
+        csv_file = request.FILES['csv_file']
         
-        # Get matched customer if available
-        if 'matched_customer_id' in current_pdf_data:
-            matched_customer_id = current_pdf_data['matched_customer_id']
-            form_initial['customer'] = matched_customer_id
-            logger.info(f"Setting initial customer to: {matched_customer_id}")
+        # Validate file
+        if not csv_file.name.endswith('.csv'):
+            return JsonResponse({'success': False, 'error': 'Only CSV files allowed'}, status=400)
         
-        # Map PDF fields to form fields
-        field_mapping = {
-            'reference_number': 'reference_number',
-            'currency': 'currency', 
-            'total_amount': 'total_amount',
-            'valid_from': 'valid_from',
-            'valid_until': 'valid_until',
-        }
+        if csv_file.size > 50 * 1024 * 1024:  # 5MB limit
+            return JsonResponse({'success': False, 'error': 'File too large (max 5MB)'}, status=400)
         
-        for pdf_field, form_field in field_mapping.items():
-            if pdf_field in current_pdf_data and current_pdf_data[pdf_field]:
-                form_initial[form_field] = current_pdf_data[pdf_field]
-                logger.debug(f"Mapping {pdf_field} -> {form_field}: {current_pdf_data[pdf_field]}")
+        # Create CSV upload record
+        csv_upload = PurchaseOrderCSV(
+            csv_file=csv_file,
+            original_filename=csv_file.name,
+            uploaded_by=request.user
+        )
+        csv_upload.save()
         
-        # Calculate balance from total and invoiced
-        if 'total_amount' in current_pdf_data:
-            if 'total_invoiced' in current_pdf_data and current_pdf_data['total_invoiced']:
-                try:
-                    total = float(str(current_pdf_data['total_amount']).replace(',', ''))
-                    invoiced = float(str(current_pdf_data['total_invoiced']).replace(',', ''))
-                    form_initial['balance'] = max(0, total - invoiced)
-                    logger.info(f"Calculated balance: {form_initial['balance']} (Total: {total} - Invoiced: {invoiced})")
-                except (ValueError, TypeError) as e:
-                    logger.error(f"Error calculating balance: {e}")
-                    form_initial['balance'] = current_pdf_data['total_amount']
-            else:
-                form_initial['balance'] = current_pdf_data['total_amount']
+        # Extract data
+        extracted_data = csv_upload.extract_csv_data()
         
-        form = PurchaseOrderForm(initial=form_initial, pdf_data=current_pdf_data)
-    else:
-        # Default initialization
-        today = date.today()
-        form = PurchaseOrderForm(initial={
-            'valid_from': today,
-            'valid_until': today + timedelta(days=365),
-            'currency': 'USD',
-            'balance': 0,
-        })
-    
-    # Prepare template context with debugging
-    template_pdf_data = {}
-    if current_pdf_data:
-        for key, value in current_pdf_data.items():
+        if not extracted_data or not csv_upload.extraction_success:
+            return JsonResponse({
+                'success': False,
+                'error': f'CSV extraction failed: {csv_upload.extraction_errors}'
+            }, status=400)
+        
+        # Try to match customer
+        matched_customer = None
+        customer_name = extracted_data.get('customer_name', '')
+        
+        if customer_name:
+            # Try exact match
             try:
-                if isinstance(value, (str, int, float, bool, type(None))):
-                    template_pdf_data[key] = value
-                else:
-                    template_pdf_data[key] = str(value)
-            except Exception as e:
-                logger.warning(f"Error converting PDF data field {key}: {e}")
-                template_pdf_data[key] = str(value) if value is not None else ''
-    
-    context = {
-        'pdf_form': pdf_form,
-        'form': form,
-        'pdf_data': template_pdf_data,
-        'has_pdf_data': bool(template_pdf_data),
-        'pdf_data_json': json.dumps(template_pdf_data) if template_pdf_data else '{}',
-        'matched_customer_id': matched_customer_id,
-        'debug_info': {
-            'session_has_pdf_data': current_pdf_data is not None,
-            'pdf_data_keys': list(template_pdf_data.keys()) if template_pdf_data else [],
-            'session_keys': list(request.session.keys()),
-            'form_initial_keys': list(form_initial.keys()) if form_initial else [],
-        } if request.user.is_superuser else None,
-    }
-    
-    logger.info(f"Rendering create template. Has PDF data: {bool(template_pdf_data)}, Matched customer: {matched_customer_id}")
-    
-    return render(request, 'purchase_orders/create.html', context)
+                matched_customer = Customer.objects.get(
+                    code__iexact=customer_name,
+                    is_active=True
+                )
+            except Customer.DoesNotExist:
+                # Try partial match
+                customers = Customer.objects.filter(
+                    code__icontains=customer_name[:20],
+                    is_active=True
+                )
+                if customers.count() == 1:
+                    matched_customer = customers.first()
+        
+        if matched_customer:
+            extracted_data['matched_customer_id'] = matched_customer.id
+            extracted_data['matched_customer_name'] = matched_customer.name
+        
+        # Try to match account
+        matched_account = None
+        account_name = extracted_data.get('account_name', '').strip()
+        
+        if matched_customer and account_name:
+            try:
+                matched_account = Account.objects.get(
+                    customer=matched_customer,
+                    code__iexact=account_name,
+                    is_active=True
+                )
+                extracted_data['matched_account_id'] = matched_account.id
+            except Account.DoesNotExist:
+                pass
+        
+        # Store in session
+        request.session['csv_upload_id'] = csv_upload.id
+        request.session['extracted_csv_data'] = extracted_data
+        request.session.modified = True
+        
+        return JsonResponse({
+            'success': True,
+            'data': extracted_data,
+            'message': 'CSV parsed successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"CSV upload error: {e}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
 
 
 @login_required
-def purchase_order_detail(request, pk):
-    """Detailed view of a purchase order"""
-    po = get_object_or_404(PurchaseOrder, pk=pk)
-    billing_runs = po.billingrun_set.all().order_by('-created_at')[:10]  # Recent 10
-    
-    context = {
-        'purchase_order': po,
-        'billing_runs': billing_runs,
-        'total_billed': billing_runs.aggregate(total=Sum('amount'))['total'] or 0,
-    }
-    return render(request, 'purchase_orders/detail.html', context)
-
-@login_required
-def edit_purchase_order(request, pk):
-    """Edit an existing purchase order with enhanced balance handling"""
-    po = get_object_or_404(PurchaseOrder, pk=pk)
-    
-    if request.method == 'POST':
-        # Use the specialized edit form
-        form = PurchaseOrderEditForm(request.POST, instance=po)
-        if form.is_valid():
-            updated_po = form.save()
+@require_POST
+def bulk_create_pos_from_csv(request):
+    """Create multiple POs from uploaded CSV data with optional account filtering"""
+    try:
+        data = json.loads(request.body)
+        
+        # Get CSV data from session
+        extracted_data = request.session.get('extracted_csv_data')
+        if not extracted_data:
+            return JsonResponse({
+                'success': False,
+                'error': 'No CSV data found. Please upload CSV first.'
+            }, status=400)
+        
+        customer_name = extracted_data.get('customer_name', '')
+        po_records = extracted_data.get('po_records', [])
+        
+        # Apply account filter if provided
+        account_filter = data.get('account_filter')
+        if account_filter:
+            po_records = [r for r in po_records if r.get('account_name') == account_filter]
+            logger.info(f"Filtered to {len(po_records)} records for account: {account_filter}")
+        
+        # Helper function to convert date strings to date objects
+        def ensure_date(value):
+            """Convert string or date to date object"""
+            if not value:
+                return date.today()
+            if isinstance(value, date):
+                return value
+            if isinstance(value, str):
+                try:
+                    from datetime import datetime
+                    # Try parsing common formats
+                    for fmt in ['%Y-%m-%d', '%d-%b-%y', '%d-%b-%Y', '%d-%m-%Y', '%d/%m/%Y', '%m/%d/%Y']:
+                        try:
+                            return datetime.strptime(value.strip(), fmt).date()
+                        except:
+                            continue
+                    # If all parsing fails, return today
+                    return date.today()
+                except:
+                    return date.today()
+            return date.today()
+        
+        # Get or create customer
+        customer_id = data.get('customer_id')
+        if customer_id:
+            customer = get_object_or_404(Customer, id=customer_id, is_active=True)
+        elif customer_name:
+            # Create new customer
+            customer_code = customer_name[:3].upper()
+            counter = 1
+            original_code = customer_code
+            while Customer.objects.filter(code=customer_code).exists():
+                customer_code = f"{original_code}{counter}"
+                counter += 1
             
-            # Update account status if account exists
-            if updated_po.account:
-                updated_po.account.update_status()
-            
-            messages.success(request, f'Purchase Order {updated_po.po_number} updated successfully!')
-            return redirect('purchase_orders:list')
+            customer = Customer.objects.create(
+                name=customer_name,
+                code=customer_code,
+                email=f"{customer_code.lower()}@example.com",
+                created_by=request.user
+            )
         else:
-            # Add form errors to messages for better user feedback
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f"{field.title()}: {error}")
-    else:
-        # Use the specialized edit form for GET request
-        form = PurchaseOrderEditForm(instance=po)
-    
-    context = {
-        'form': form, 
-        'purchase_order': po,
-        'is_edit_mode': True  # Flag to help template distinguish edit vs create
-    }
-    return render(request, 'purchase_orders/edit.html', context)
+            return JsonResponse({
+                'success': False,
+                'error': 'Customer is required'
+            }, status=400)
+        
+        # Track creation results
+        created_pos = []
+        created_accounts = []
+        errors = []
+        
+        # Create POs from records
+        for idx, record in enumerate(po_records):
+            try:
+                account_name = record.get('account_name', '').strip()
+                account = None
+                
+                # Get or create account
+                if account_name:
+                    try:
+                        account = Account.objects.get(
+                            customer=customer,
+                            name__iexact=account_name,
+                            is_active=True
+                        )
+                    except Account.DoesNotExist:
+                        # Create new account
+                        from apps.customers.models import Currency, BillingCycle
+                        
+                        currency_code = record.get('currency', 'USD')
+                        currency, _ = Currency.objects.get_or_create(
+                            code=currency_code,
+                            defaults={'name': currency_code}
+                        )
+                        
+                        billing_cycle, _ = BillingCycle.objects.get_or_create(
+                            name='Monthly',
+                            defaults={'cycle_type': 'monthly', 'customer': customer}
+                        )
+                        
+                        account_id_str = f"{customer.code}-{account_name[:3].upper()}-{idx+1:03d}"
+                        
+                        account = Account.objects.create(
+                            customer=customer,
+                            name=account_name,
+                            account_id=account_id_str,
+                            region='Global',
+                            billing_cycle=billing_cycle,
+                            currency=currency,
+                            created_by=request.user
+                        )
+                        created_accounts.append(account.name)
+                
+                # Generate PO number
+                po_number = record.get('po_number', '')
+                if not po_number:
+                    po_number = f"PO-{customer.code}-{date.today().year}-{idx+1:04d}"
+                
+                # Create PO
+                po = PurchaseOrder.objects.create(
+                    po_number=po_number,
+                    customer=customer,
+                    account=account,
+                    currency=record.get('currency', 'USD'),
+                    total_amount=max(0, float(record.get('total_amount', 0))),
+                    spent_amount=max(0, float(record.get('spent_amount', 0))),
+                    valid_from=ensure_date(record.get('valid_from')),
+                    valid_until=ensure_date(record.get('valid_until')),
+                    project=account_name,  # Store account name in project field
+                    sdm=record.get('sdm', ''),
+                    bill_to=record.get('bill_to', ''),
+                    billing_address=record.get('billing_address', ''),
+                    about=record.get('about', ''),
+                    work_done=record.get('work_done', ''),
+                    comment=record.get('comment', ''),
+                    expiration_days=record.get('expiration_days'),
+                    payment_terms=record.get('payment_terms', ''),
+                    client_year=record.get('client_year', ''),
+                    created_by=request.user,
+                    status='active' if record.get('po_status', '').upper() == 'ACTIVE' else 'inactive'
+                )
+                
+                created_pos.append(po.po_number)
+            
+            except Exception as e:
+                errors.append(f"Row {idx + 1}: {str(e)}")
+                continue
+        
+        # Link CSV upload to first PO
+        csv_upload_id = request.session.get('csv_upload_id')
+        if csv_upload_id and created_pos:
+            try:
+                csv_upload = PurchaseOrderCSV.objects.get(id=csv_upload_id)
+                first_po = PurchaseOrder.objects.get(po_number=created_pos[0])
+                csv_upload.purchase_order = first_po
+                csv_upload.save()
+            except:
+                pass
+        
+        # Clear session
+        request.session.pop('csv_upload_id', None)
+        request.session.pop('extracted_csv_data', None)
+        request.session.pop('response_data', None)
+        request.session.modified = True
+        
+        return JsonResponse({
+            'success': True,
+            'created_pos': len(created_pos),
+            'created_accounts': len(created_accounts),
+            'errors': len(errors),
+            'po_numbers': created_pos,
+            'account_names': created_accounts,
+            'error_details': errors if errors else None,
+            'message': f'Created {len(created_pos)} POs successfully' + 
+                      (f' with {len(errors)} errors' if errors else '')
+        })
+        
+    except Exception as e:
+        logger.error(f"Bulk PO creation error: {e}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
 
 @login_required
-def delete_purchase_order(request, pk):
-    """Delete a purchase order (with confirmation)"""
-    po = get_object_or_404(PurchaseOrder, pk=pk)
-    
-    if request.method == 'POST':
-        po.delete()
-        messages.success(request, 'Purchase Order deleted successfully!')
-        return redirect('purchase_orders:list')
-    
-    return render(request, 'purchase_orders/delete.html', {'purchase_order': po})
+@require_POST
+def create_purchase_order_api(request):
+    """Create PO via API (AJAX)"""
+    try:
+        data = json.loads(request.body)
+        
+        # Get or create customer
+        customer_id = data.get('customer_id')
+        customer_name = data.get('customer_name', '')
+        
+        if customer_id:
+            customer = get_object_or_404(Customer, id=customer_id, is_active=True)
+        elif customer_name:
+            # Create new customer
+            customer_code = customer_name[:3].upper()
+            counter = 1
+            original_code = customer_code
+            while Customer.objects.filter(code=customer_code).exists():
+                customer_code = f"{original_code}{counter}"
+                counter += 1
+            
+            customer = Customer.objects.create(
+                name=customer_name,
+                code=customer_code,
+                email=f"{customer_code.lower()}@example.com",
+                created_by=request.user
+            )
+            messages.success(request, f"Created new customer: {customer.name}")
+        else:
+            return JsonResponse({'success': False, 'error': 'Customer is required'}, status=400)
+        
+        # Get or create account
+        account = None
+        account_id = data.get('account_id')
+        account_name = data.get('account_name', '').strip()
+        
+        if account_id:
+            account = get_object_or_404(Account, id=account_id, customer=customer, is_active=True)
+        elif account_name:
+            # Create new account
+            from apps.customers.models import Currency, BillingCycle
+            
+            currency, _ = Currency.objects.get_or_create(
+                code=data.get('currency', 'USD'),
+                defaults={'name': data.get('currency', 'USD')}
+            )
+            
+            billing_cycle, _ = BillingCycle.objects.get_or_create(
+                name='Monthly',
+                defaults={'cycle_type': 'monthly', 'customer': customer}
+            )
+            
+            account_id_str = f"{customer.code}-{account_name[:3].upper()}-001"
+            counter = 1
+            original_id = account_id_str
+            while Account.objects.filter(account_id=account_id_str).exists():
+                account_id_str = f"{original_id[:-3]}{counter:03d}"
+                counter += 1
+            
+            account = Account.objects.create(
+                customer=customer,
+                name=account_name,
+                account_id=account_id_str,
+                region=data.get('region', 'Global'),
+                billing_cycle=billing_cycle,
+                currency=currency,
+                created_by=request.user
+            )
+            messages.success(request, f"Created new account: {account.name}")
+        
+        # Parse dates from string to date objects
+        from datetime import datetime
+        
+        valid_from_str = data.get('valid_from')
+        valid_until_str = data.get('valid_until')
+        
+        try:
+            valid_from = datetime.strptime(valid_from_str, '%Y-%m-%d').date() if valid_from_str else date.today()
+        except (ValueError, TypeError):
+            valid_from = date.today()
+        
+        try:
+            valid_until = datetime.strptime(valid_until_str, '%Y-%m-%d').date() if valid_until_str else date.today()
+        except (ValueError, TypeError):
+            valid_until = date.today()
+        
+        # Create PO
+        po = PurchaseOrder.objects.create(
+            po_number=data.get('po_number', ''),
+            customer=customer,
+            account=account,
+            currency=data.get('currency', 'USD'),
+            total_amount=data.get('total_amount', 0),
+            spent_amount=data.get('spent_amount', 0),
+            valid_from=valid_from,
+            valid_until=valid_until,
+            project=data.get('project', ''),
+            sdm=data.get('sdm', ''),
+            bill_to=data.get('bill_to', ''),
+            billing_address=data.get('billing_address', ''),
+            about=data.get('about', ''),
+            work_done=data.get('work_done', ''),
+            comment=data.get('comment', ''),
+            expiration_days=data.get('expiration_days'),
+            payment_terms=data.get('payment_terms', ''),
+            client_year=data.get('client_year', ''),
+            created_by=request.user
+        )
+        
+        # Link CSV if exists
+        csv_upload_id = request.session.get('csv_upload_id')
+        if csv_upload_id:
+            try:
+                csv_upload = PurchaseOrderCSV.objects.get(id=csv_upload_id)
+                csv_upload.purchase_order = po
+                csv_upload.save()
+            except PurchaseOrderCSV.DoesNotExist:
+                pass
+        
+        # Clear session
+        request.session.pop('csv_upload_id', None)
+        request.session.pop('extracted_csv_data', None)
+        request.session.modified = True
+        
+        return JsonResponse({
+            'success': True,
+            'po_id': po.id,
+            'po_number': po.po_number,
+            'message': f'PO {po.po_number} created successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Create PO error: {e}", exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 
 @login_required
-def export_purchase_orders(request):
-    """Export purchase orders to CSV"""
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="purchase_orders_export.csv"'
-    
-    writer = csv.writer(response)
-    writer.writerow([
-        'PO Number', 'Customer', 'Account', 'Total Amount', 'Remaining Balance',
-        'Utilization %', 'Valid From', 'Valid Until', 'Status', 'Created Date',
-        'Created By', 'Days Until Expiry'
-    ])
-    
-    pos = PurchaseOrder.objects.select_related('customer', 'account', 'created_by').all()
-    
-    for po in pos:
-        writer.writerow([
-            po.po_number,
-            po.customer.name,
-            po.account.name if po.account else '',
-            po.total_amount,
-            po.remaining_balance,
-            f"{po.utilization_percentage:.1f}%",
-            po.valid_from,
-            po.valid_until,
-            po.get_status_display(),
-            po.created_at.strftime('%Y-%m-%d'),
-            po.created_by.get_full_name() or po.created_by.username,
-            po.days_until_expiry
-        ])
-    
-    return response
+@require_POST
+def update_purchase_order_api(request, pk):
+    """Update PO via API (AJAX)"""
+    try:
+        po = get_object_or_404(PurchaseOrder, id=pk)
+        data = json.loads(request.body)
+        
+        # Parse dates if provided
+        from datetime import datetime
+        
+        valid_from_str = data.get('valid_from')
+        valid_until_str = data.get('valid_until')
+        
+        if valid_from_str:
+            try:
+                po.valid_from = datetime.strptime(valid_from_str, '%Y-%m-%d').date()
+            except (ValueError, TypeError):
+                pass
+        
+        if valid_until_str:
+            try:
+                po.valid_until = datetime.strptime(valid_until_str, '%Y-%m-%d').date()
+            except (ValueError, TypeError):
+                pass
+        
+        # Update other fields
+        po.currency = data.get('currency', po.currency)
+        po.total_amount = data.get('total_amount', po.total_amount)
+        po.spent_amount = data.get('spent_amount', po.spent_amount)
+        po.project = data.get('project', po.project)
+        po.sdm = data.get('sdm', po.sdm)
+        po.bill_to = data.get('bill_to', po.bill_to)
+        po.billing_address = data.get('billing_address', po.billing_address)
+        po.about = data.get('about', po.about)
+        po.work_done = data.get('work_done', po.work_done)
+        po.comment = data.get('comment', po.comment)
+        po.expiration_days = data.get('expiration_days', po.expiration_days)
+        po.payment_terms = data.get('payment_terms', po.payment_terms)
+        po.client_year = data.get('client_year', po.client_year)
+        
+        po.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'PO {po.po_number} updated successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Update PO error: {e}", exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
-# API endpoints for AJAX functionality
 
 @login_required
 def get_purchase_order_api(request, pk):
-    """Get purchase order details via API"""
+    """Get PO details via API"""
     try:
-        po = get_object_or_404(PurchaseOrder, pk=pk)
-        recent_billing = po.billingrun_set.order_by('-created_at')[:5]
+        po = get_object_or_404(PurchaseOrder, id=pk)
         
         data = {
             'id': po.id,
             'po_number': po.po_number,
+            'customer_id': po.customer.id,
             'customer_name': po.customer.name,
-            'account_name': po.account.name if po.account else None,
+            'account_id': po.account.id if po.account else None,
+            'account_name': po.account.name if po.account else '',
+            'currency': po.currency,
             'total_amount': str(po.total_amount),
+            'spent_amount': str(po.spent_amount),
             'remaining_balance': str(po.remaining_balance),
-            'utilization_percentage': f"{po.utilization_percentage:.1f}",
             'valid_from': po.valid_from.strftime('%Y-%m-%d'),
             'valid_until': po.valid_until.strftime('%Y-%m-%d'),
+            'project': po.project or '',
+            'sdm': po.sdm or '',
+            'bill_to': po.bill_to or '',
+            'billing_address': po.billing_address or '',
+            'about': po.about or '',
+            'work_done': po.work_done or '',
+            'comment': po.comment or '',
+            'expiration_days': po.expiration_days,
+            'payment_terms': po.payment_terms or '',
+            'client_year': po.client_year or '',
             'status': po.get_status_display(),
-            'days_until_expiry': po.days_until_expiry,
-            'recent_billing_runs': [
-                {
-                    'run_id': br.run_id,
-                    'amount': str(br.amount),
-                    'billing_date': br.billing_date.strftime('%Y-%m-%d'),
-                    'status': br.get_status_display()
-                } for br in recent_billing
-            ]
+            'utilization_percentage': f"{po.utilization_percentage:.1f}",
         }
         
-        return JsonResponse(data)
+        return JsonResponse({'success': True, 'data': data})
         
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+        logger.error(f"Get PO error: {e}", exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
-@login_required
-@require_http_methods(["POST"])
-def duplicate_purchase_order_api(request, pk):
-    """Duplicate a purchase order via API"""
-    try:
-        original_po = get_object_or_404(PurchaseOrder, pk=pk)
-        
-        # Create duplicate with modified PO number
-        new_po_number = f"{original_po.po_number}-COPY-{date.today().strftime('%m%d')}"
-        
-        # Ensure unique PO number
-        counter = 1
-        while PurchaseOrder.objects.filter(po_number=new_po_number).exists():
-            new_po_number = f"{original_po.po_number}-COPY-{date.today().strftime('%m%d')}-{counter}"
-            counter += 1
-        
-        new_po = PurchaseOrder.objects.create(
-            po_number=new_po_number,
-            customer=original_po.customer,
-            account=original_po.account,
-            total_amount=original_po.total_amount,
-            remaining_balance=original_po.total_amount,  # Reset to full amount
-            valid_from=date.today(),  # Start from today
-            valid_until=date.today() + timedelta(days=365),  # Default 1 year
-            created_by=request.user,
-            status='draft'  # Start as draft
-        )
-        
-        return JsonResponse({
-            'success': True,
-            'new_po_id': new_po.id,
-            'new_po_number': new_po.po_number,
-            'message': 'Purchase order duplicated successfully!'
-        })
-        
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 @login_required
 @require_http_methods(["DELETE"])
 def delete_purchase_order_api(request, pk):
-    """Delete a purchase order via API"""
+    """Delete PO via API"""
     try:
-        po = get_object_or_404(PurchaseOrder, pk=pk)
-        
-        # Check if PO has associated billing runs
-        billing_runs_count = po.billingrun_set.count()
-        if billing_runs_count > 0:
-            return JsonResponse({
-                'success': False,
-                'error': f'Cannot delete PO with {billing_runs_count} associated billing runs. Please delete billing runs first.'
-            }, status=400)
-        
+        po = get_object_or_404(PurchaseOrder, id=pk)
         po_number = po.po_number
         po.delete()
         
         return JsonResponse({
             'success': True,
-            'message': f'Purchase order {po_number} deleted successfully!'
+            'message': f'PO {po_number} deleted successfully'
         })
         
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+        logger.error(f"Delete PO error: {e}", exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 
 @login_required
-def get_customer_accounts_for_po(request, customer_id):
-    """Get accounts for a customer (for PO creation)"""
-    try:
-        customer = get_object_or_404(Customer, id=customer_id)
-        accounts = Account.objects.filter(customer=customer, is_active=True)
+def export_purchase_orders(request):
+    """Export POs to CSV - all or selected"""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="po_export.csv"'
+   
+    writer = csv.writer(response)
+    writer.writerow([
+        'UID', 'PO Number', 'Customer', 'Account', 'Currency', 'Total', 'Spent',
+        'Remaining', 'Valid From', 'Valid Until', 'Status', 'Project', 'SDM',
+        'Bill To', 'Billing Address', 'About', 'Work Done', 'Comment',
+        'Expiration Days', 'Payment Terms', 'Client Year'
+    ])
+   
+    # Check if specific IDs are requested
+    selected_ids = request.GET.get('ids', '')
+    
+    if selected_ids:
+        # Export only selected rows
+        id_list = [id.strip() for id in selected_ids.split(',') if id.strip()]
+        pos = PurchaseOrder.objects.filter(id__in=id_list).select_related('customer', 'account')
+    else:
+        # Export all (you can also apply filters here if needed)
+        pos = PurchaseOrder.objects.select_related('customer', 'account').all()
         
-        accounts_data = [
-            {
-                'id': account.id,
-                'account_id': account.account_id or f'ACC-{account.id}',
-                'name': account.name,
-                'currency': getattr(account, 'currency', 'USD'),
-                'display_name': f"{account.account_id or f'ACC-{account.id}'} - {account.name}"
-            } for account in accounts
-        ]
+        # Optional: Apply the same filters from the list view
+        customer_filter = request.GET.get('customer')
+        status_filter = request.GET.get('status')
+        currency_filter = request.GET.get('currency')
+        search_query = request.GET.get('search')
         
-        return JsonResponse({
-            'success': True,
-            'accounts': accounts_data,
-            'customer_name': customer.name,
-            'customer_code': customer.name[:3].upper() 
-        })
-        
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        }, status=400)
+        if customer_filter:
+            pos = pos.filter(customer_id=customer_filter)
+        if status_filter:
+            pos = pos.filter(status=status_filter)
+        if currency_filter:
+            pos = pos.filter(currency=currency_filter)
+        if search_query:
+            pos = pos.filter(po_number__icontains=search_query)
+   
+    for po in pos:
+        writer.writerow([
+            po.id,
+            po.po_number,
+            po.customer.name,
+            po.account.name if po.account else '',
+            po.currency,
+            po.total_amount,
+            po.spent_amount,
+            po.remaining_balance,
+            po.valid_from,
+            po.valid_until,
+            po.get_status_display(),
+            po.project or '',
+            po.sdm or '',
+            po.bill_to or '',
+            po.billing_address or '',
+            po.about or '',
+            po.work_done or '',
+            po.comment or '',
+            po.expiration_days or '',
+            po.payment_terms or '',
+            po.client_year or '',
+        ])
+   
+    return response
 
 
 @login_required
 def get_notifications_api(request):
-    """Get unread notifications for current user"""
+    """Get unread notifications"""
     try:
-        # Broaden the filter to show notifications for all POs the user can access
         notifications = POBalanceNotification.objects.filter(
             is_read=False
         ).select_related('purchase_order', 'purchase_order__customer').order_by('-created_at')[:10]
         
         notification_data = []
         for notification in notifications:
-            notification_data.append({
-                'id': notification.id,
-                'message': notification.message,
-                'priority_class': notification.priority_class,
-                'po_number': notification.purchase_order.po_number,
-                'customer_name': notification.purchase_order.customer.name,
-                'utilization_percentage': f"{notification.utilization_percentage:.1f}",
-                'remaining_balance': str(notification.remaining_balance),
-                'threshold_percentage': notification.threshold_percentage,
-                'created_at': notification.created_at.strftime('%Y-%m-%d %H:%M'),
-                'po_detail_url': f'/purchase-orders/{notification.purchase_order.id}/',
-                'time_ago': get_time_ago(notification.created_at)
-            })
+            try:
+                notification_data.append({
+                    'id': notification.id,
+                    'message': notification.message,
+                    'priority_class': notification.priority_class,
+                    'po_number': notification.purchase_order.po_number,
+                    'customer_name': notification.purchase_order.customer.name,
+                    'utilization_percentage': f"{float(notification.utilization_percentage):.1f}",
+                    'remaining_balance': str(float(notification.remaining_balance)),
+                    'threshold_percentage': notification.threshold_percentage,
+                    'created_at': notification.created_at.strftime('%Y-%m-%d %H:%M'),
+                    'po_id': notification.purchase_order.id,
+                })
+            except (ValueError, TypeError, Exception) as e:
+                # Skip corrupt notifications and log the error
+                logger.warning(f"Skipping corrupt notification {notification.id}: {e}")
+                continue
         
         return JsonResponse({
             'success': True,
             'notifications': notification_data,
-            'unread_count': notifications.count()
+            'unread_count': len(notification_data)
         })
         
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+        logger.error(f"Get notifications error: {e}", exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 
 @login_required
-@require_http_methods(["POST"])
+@require_POST
 def mark_notification_read_api(request, notification_id):
-    """Mark a notification as read"""
+    """Mark notification as read"""
     try:
-        notification = get_object_or_404(
-            POBalanceNotification,
-            id=notification_id,
-            purchase_order__created_by=request.user  # Security check
-        )
+        notification = get_object_or_404(POBalanceNotification, id=notification_id)
         notification.is_read = True
         notification.save()
         
@@ -633,16 +734,16 @@ def mark_notification_read_api(request, notification_id):
         })
         
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 
 @login_required
-@require_http_methods(["POST"])
+@require_POST
 def mark_all_notifications_read_api(request):
-    """Mark all notifications as read for current user"""
+    """Mark all notifications as read"""
     try:
         count = POBalanceNotification.objects.filter(
-            is_read=False,
-            purchase_order__created_by=request.user
+            is_read=False
         ).update(is_read=True)
         
         return JsonResponse({
@@ -651,78 +752,4 @@ def mark_all_notifications_read_api(request):
         })
         
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
-
-def get_time_ago(created_at):
-    """Helper function to get human readable time ago"""
-    from django.utils import timezone
-    from datetime import timedelta
-    
-    now = timezone.now()
-    diff = now - created_at
-    
-    if diff < timedelta(minutes=1):
-        return 'Just now'
-    elif diff < timedelta(hours=1):
-        minutes = diff.seconds // 60
-        return f'{minutes} minute{"s" if minutes != 1 else ""} ago'
-    elif diff < timedelta(days=1):
-        hours = diff.seconds // 3600
-        return f'{hours} hour{"s" if hours != 1 else ""} ago'
-    elif diff < timedelta(days=7):
-        return f'{diff.days} day{"s" if diff.days != 1 else ""} ago'
-    else:
-        return created_at.strftime('%b %d, %Y')
-
-
-@login_required
-def test_notification_system(request):
-    """Test endpoint to trigger notifications manually"""
-    from django.utils import timezone
-    
-    # Create a test notification
-    if PurchaseOrder.objects.exists():
-        po = PurchaseOrder.objects.first()
-        notification = POBalanceNotification.objects.create(
-            purchase_order=po,
-            threshold_percentage=75,
-            utilization_percentage=80.5,
-            remaining_balance=po.remaining_balance,
-            created_at=timezone.now(),
-            is_read=False
-        )
-        
-        messages.success(request, f"Test notification created for {po.po_number}")
-    
-    return redirect('purchase_orders:list')
-
-
-@login_required
-@require_POST
-@csrf_protect
-def clear_pdf_data(request):
-    """Clear PDF-related session data"""
-    session_keys = ['current_pdf_upload_id', 'extracted_pdf_data']
-    cleared = False
-    for key in session_keys:
-        if key in request.session:
-            del request.session[key]
-            cleared = True
-    if cleared:
-        request.session.modified = True
-        logger.debug("Cleared PDF session data")
-    return JsonResponse({'success': True})
-
-
-@login_required
-def debug_pdf_extraction(request):
-    """Temporary debug view to check session data"""
-    pdf_data = request.session.get('extracted_pdf_data')
-    
-    context = {
-        'has_session_data': pdf_data is not None,
-        'pdf_data': pdf_data,
-        'session_keys': list(request.session.keys()),
-    }
-    
-    return render(request, 'purchase_orders/debug_pdf.html', context)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

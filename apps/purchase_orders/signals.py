@@ -9,7 +9,8 @@ logger = logging.getLogger(__name__)
 @receiver(pre_save, sender=PurchaseOrder)
 def check_balance_thresholds(sender, instance, **kwargs):
     """Check if PO balance has crossed notification thresholds"""
-
+    
+    # Skip for new records (no pk yet)
     if not instance.pk:
         return
     
@@ -20,12 +21,15 @@ def check_balance_thresholds(sender, instance, **kwargs):
         return
     
     # Skip if balance hasn't changed
-    if old_instance.remaining_balance == instance.remaining_balance:
+    old_remaining = old_instance.total_amount - old_instance.spent_amount
+    new_remaining = instance.total_amount - instance.spent_amount
+    
+    if old_remaining == new_remaining:
         return
     
     # Calculate utilization percentages
-    old_utilization = old_instance.utilization_percentage
-    new_utilization = ((instance.total_amount - instance.remaining_balance) / instance.total_amount) * 100 if instance.total_amount > 0 else 0
+    old_utilization = ((old_instance.total_amount - old_remaining) / old_instance.total_amount * 100) if old_instance.total_amount > 0 else 0
+    new_utilization = ((instance.total_amount - new_remaining) / instance.total_amount * 100) if instance.total_amount > 0 else 0
     
     logger.info(f"PO {instance.po_number}: Utilization changed from {old_utilization:.1f}% to {new_utilization:.1f}%")
     
@@ -36,17 +40,18 @@ def check_balance_thresholds(sender, instance, **kwargs):
         # Check if we've crossed this threshold upward
         if old_utilization < threshold <= new_utilization:
             # Check if notification already exists for this threshold
-            if not POBalanceNotification.objects.filter(
+            notification_exists = POBalanceNotification.objects.filter(
                 purchase_order=instance, 
                 threshold_percentage=threshold
-            ).exists():
-                
+            ).exists()
+            
+            if not notification_exists:
                 # Create notification
                 POBalanceNotification.objects.create(
                     purchase_order=instance,
                     threshold_percentage=threshold,
                     utilization_percentage=new_utilization,
-                    remaining_balance=instance.remaining_balance,
+                    remaining_balance=new_remaining,
                     created_at=timezone.now(),
                     is_read=False
                 )
@@ -57,20 +62,25 @@ def check_balance_thresholds(sender, instance, **kwargs):
 def create_initial_notifications(sender, instance, created, **kwargs):
     """Create notifications for new POs that already have high utilization"""
     if created:
-        utilization = instance.utilization_percentage
+        remaining = instance.total_amount - instance.spent_amount
+        utilization = ((instance.total_amount - remaining) / instance.total_amount * 100) if instance.total_amount > 0 else 0
+        
         thresholds = [50, 75, 90]
         
         for threshold in thresholds:
             if utilization >= threshold:
-                if not POBalanceNotification.objects.filter(
+                notification_exists = POBalanceNotification.objects.filter(
                     purchase_order=instance,
                     threshold_percentage=threshold
-                ).exists():
+                ).exists()
+                
+                if not notification_exists:
                     POBalanceNotification.objects.create(
                         purchase_order=instance,
                         threshold_percentage=threshold,
                         utilization_percentage=utilization,
-                        remaining_balance=instance.remaining_balance,
+                        remaining_balance=remaining,
                         created_at=timezone.now(),
                         is_read=False
                     )
+                    logger.info(f"Created initial {threshold}% notification for new PO {instance.po_number}")
