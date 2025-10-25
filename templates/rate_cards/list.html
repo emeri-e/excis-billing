@@ -5,6 +5,7 @@
 {% block page_title %}Rate Cards{% endblock %}
 
 {% block header_js %}
+<script src="{% static 'js/ratecards.js' %}" ></script>
 <script src="{% static 'js/rate_cards/lists.js' %}" type="script"></script>
 {% endblock %}
 
@@ -192,7 +193,6 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
     </div>
   </div>
 </div>
-
 <script>
 (function RateCardApp(){
   const ns = {};
@@ -343,15 +343,35 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
     container.innerHTML = `<table><thead><tr>${baseCols()}<th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
+  const allDedicatedURL = "{% url 'rate_cards:dedicated_services_all' %}";
+  const allScheduleURL = "{% url 'rate_cards:dedicated_services_all' %}";
+  const allDispatchURL = "{% url 'rate_cards:dedicated_services_all' %}";
+  const allProjectURL = "{% url 'rate_cards:dedicated_services_all' %}";
+
   function render(){ 
-    if(ns.currentType === 'service-rate') {
-      // show service-rate representation (you can alter to match your layout)
-      renderServiceRateCard();
-    } else {
-      renderDefault();
+    switch (ns.currentType) {
+      case "service-rate":
+        return renderServiceRateCard();
+        break;
+      case "dedicated":
+        return renderDedicatedRateCard(allDedicatedURL, container);
+        break;
+      case "scheduled":
+        return renderScheduledRateCard(allScheduleURL, container);
+        break;
+      case "dispatch":
+        return renderDispatchRateCard(allDispatchURL, container);
+        break;
+      case "projects":
+        return renderProjectsRateCard(allProjectURL, container);
+        break;
+      default:
+        return renderDefault();
     }
+    return;
   }
 
+  
   function renderServiceRateCard() {
     // Helper: get service_rates array for a ratecard (may be undefined)
     const getSvcList = id => (ns.services[id] && ns.services[id].service_rates) ? ns.services[id].service_rates : [];
@@ -454,7 +474,6 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
 
     container.innerHTML = `<table><thead>${headerHtml}</thead><tbody>${rowsHtml || '<tr><td colspan="100%">No rows</td></tr>'}</tbody></table>`;
   }
-
 
   // Modal open/edit/new using backend
   function openModal(mode, id){

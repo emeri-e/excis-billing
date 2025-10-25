@@ -16,6 +16,7 @@ import os
 pymysql.install_as_MySQLdb()
 from pathlib import Path
 from decouple import config
+from datetime import datetime
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -28,7 +29,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-&r5twgh-a9*=72plnee0sefd*(w$v@js@n+^ydrzbyp(te%$#v"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = config("DEBUG_STATUS", False)
 
 ALLOWED_HOSTS = [
     "billing.pickfreshdevelopment.site",
@@ -145,7 +146,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STATICFILES_DIRS = [
     BASE_DIR / "static",
     "/var/www/static/",
@@ -215,7 +216,11 @@ LOGGING = {
         "file": {
             "level": "DEBUG",
             "class": "logging.FileHandler",
-            "filename": LOGS_DIR / "django_app.log",
+            "filename": LOGS_DIR
+            / (
+                "django_app_%s_%s_%s.log"
+                % (datetime.now().day, datetime.now().month, datetime.now().year)
+            ),
             "formatter": "detailed",
         },
         # Rotating file handler (creates new files when they get too big)
@@ -270,4 +275,3 @@ LOGGING = {
         },
     },
 }
-
