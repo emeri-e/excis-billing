@@ -208,41 +208,55 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
   // Endpoints (adjust if you included app_name in urls)
   const API_BASE = '/rate-cards/api';
 
-  // Fetch initial ratecards from backend (prefetch all service_rates)
+  // load service rates for a single ratecard and svcType
+  async function loadServiceRatesForType(ratecard_id, svcType){
+    const ep = svcEndpointMap[svcType];
+    if(!ep) throw new Error('Unknown svcType endpoint: '+svcType);
+    const res = await fetch(`${API_BASE}/ratecards/${ratecard_id}/${ep}s/`); 
+    // NOTE: this assumes your server supports URLs like /ratecards/<id>/service_rates/ or /ratecards/<id>/dedicated_rates/
+    // If your endpoints differ, adjust to something like `${API_BASE}/${ep}/?rate_card_id=${ratecard_id}`
+    if(!res.ok) {
+      console.warn('failed loadServiceRatesForType', ratecard_id, svcType, res.status);
+      return [];
+    }
+    const j = await res.json();
+    return j.results || [];
+  }
+
+  // initial load: get ratecards, then load each svc type incrementally for each ratecard
   async function loadRateCards(){
     const res = await fetch(`${API_BASE}/ratecards/`);
     const j = await res.json();
     ns.data = j.results || [];
 
-    // set placeholders
-    ns.data.forEach(r => ns.services[r.id] = { service_rates: [], dedicated: [], scheduled: [], dispatch: [], projects: [] });
-
-    // build array of fetch promises
-    const promises = ns.data.map(async r => {
-      try {
-        const svc = await loadServiceRates(r.id);
-        ns.services[r.id].service_rates = svc;
-      } catch (err) {
-        console.warn('Failed to load service rates for', r.id, err);
-        ns.services[r.id].service_rates = [];
-      }
+    // initialize ns.services slots for each ratecard
+    ns.data.forEach(r => {
+      ns.services[r.id] = ns.services[r.id] || {};
+      Object.values(serviceKeyMap).forEach(k => ns.services[r.id][k] = []);
     });
 
-    // wait for all to finish (you can remove the await if you want incremental behavior)
-    await Promise.all(promises);
+    // list of svcTypes to load (all of them)
+    const svcTypes = Object.keys(serviceKeyMap);
 
+    // load each ratecard's svc types incrementally (fire-and-await pattern)
+    await Promise.all(ns.data.map(async r => {
+      await Promise.all(svcTypes.map(async svcType => {
+        try {
+          const arr = await loadServiceRatesForType(r.id, svcType);
+          const key = serviceKeyMap[svcType];
+          ns.services[r.id][key] = arr;
+          // if currently viewing the tab that uses this svcType, re-render for immediate feedback
+          if(ns.currentType === svcType) render();
+        } catch(err) {
+          console.warn('failed loading', svcType, 'for', r.id, err);
+          ns.services[r.id][serviceKeyMap[svcType]] = [];
+        }
+      }));
+    }));
+
+    // initial render & filters
     render();
     refreshSupplierFilter();
-  }
-
-  // same loadServiceRates as Option A
-  async function loadServiceRates(ratecard_id){
-    const res = await fetch(`${API_BASE}/ratecards/${ratecard_id}/service_rates/`);
-    if (!res.ok) {
-      throw new Error(`service_rates fetch failed: ${res.status}`);
-    }
-    const j = await res.json();
-    return j.results || [];
   }
 
 
@@ -272,29 +286,55 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
     return await res.json();
   }
   // ServiceRate CRUD helpers (uses csrftoken and API_BASE from your script)
-  async function createServiceRate(payload){
-    const res = await fetch(`${API_BASE}/service_rate/create/`, {
+  // maps: ns.currentType -> ns.services property name (no dashes)
+  const serviceKeyMap = {
+    'service-rate': 'service_rates',
+    'dedicated': 'dedicated',
+    'scheduled': 'scheduled',
+    'dispatch': 'dispatch',
+    'projects': 'projects'
+  };
+
+  // maps: ns.currentType -> backend endpoint base (adjust to your real endpoints)
+  const svcEndpointMap = {
+    'service-rate': 'service_rate',   // endpoint examples: /rate-cards/api/service_rate/create/
+    'dedicated': 'dedicated_rate',
+    'scheduled': 'scheduled_rate',
+    'dispatch': 'dispatch_rate',
+    'projects': 'project_rate'
+  };
+
+  // Generic service CRUD that uses svcType to pick endpoint
+  async function createSvc(svcType, payload){
+    const ep = svcEndpointMap[svcType];
+    if(!ep) throw new Error('Unknown svcType endpoint: '+svcType);
+    const res = await fetch(`${API_BASE}/${ep}/create/`, {
       method: 'POST',
       headers: {'X-CSRFToken': csrftoken},
       body: new URLSearchParams(payload)
     });
     return await res.json();
   }
-  async function updateServiceRate(id, payload){
-    const res = await fetch(`${API_BASE}/service_rate/${id}/update/`, {
+  async function updateSvc(svcType, id, payload){
+    const ep = svcEndpointMap[svcType];
+    if(!ep) throw new Error('Unknown svcType endpoint: '+svcType);
+    const res = await fetch(`${API_BASE}/${ep}/${id}/update/`, {
       method: 'POST',
       headers: {'X-CSRFToken': csrftoken},
       body: new URLSearchParams(payload)
     });
     return await res.json();
   }
-  async function deleteServiceRateAPI(id){
-    const res = await fetch(`${API_BASE}/service_rate/${id}/delete/`, {
+  async function deleteSvc(svcType, id){
+    const ep = svcEndpointMap[svcType];
+    if(!ep) throw new Error('Unknown svcType endpoint: '+svcType);
+    const res = await fetch(`${API_BASE}/${ep}/${id}/delete/`, {
       method: 'POST',
       headers: {'X-CSRFToken': csrftoken},
     });
     return await res.json();
   }
+
 
 
   // --- Keep your UI wiring but use ns.data from backend
@@ -344,13 +384,14 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
   }
 
   function render(){ 
-    if(ns.currentType === 'service-rate') {
-      // show service-rate representation (you can alter to match your layout)
-      renderServiceRateCard();
-    } else {
-      renderDefault();
-    }
+    if(ns.currentType==='dedicated') renderDedicated();
+    else if(ns.currentType==='scheduled') renderGeneric(ns.scheduledGroups,'scheduled');
+    else if(ns.currentType==='dispatch') renderGeneric(ns.dispatchGroups,'dispatch');
+    else if(ns.currentType==='projects') renderGeneric(ns.projectGroups,'projects');
+    else if(ns.currentType==='service-rate') renderServiceRateCard();
+    else renderDefault();
   }
+
 
   function renderServiceRateCard() {
     // Helper: get service_rates array for a ratecard (may be undefined)
@@ -488,17 +529,18 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
   modalBody.innerHTML = html;
   modalBackdrop.style.display = 'flex';
 
-  // helper to render the service-rate editor/list inside modal
+  // inside openModal, after building the main modalBody...
+  const svcKey = serviceKeyMap[svcType] || 'service_rates'; // which ns.services[rec.id][svcKey] to use
+
   function renderSvcEditor(){
-    const svc = ns.services[rec.id] && ns.services[rec.id].service_rates ? ns.services[rec.id].service_rates.slice() : [];
+    const svc = ns.services[rec.id] && ns.services[rec.id][svcKey] ? ns.services[rec.id][svcKey].slice() : [];
     const listEl = document.getElementById('rcSvcList');
     if(!listEl) return;
     if(svc.length === 0){
-      listEl.innerHTML = `<div style="color:#777" class="rcFormRow"><label style="width:auto">No service rates for this card.</label></div>`;
+      listEl.innerHTML = `<div style="color:#777" class="rcFormRow"><label style="width:auto">No entries for this type.</label></div>`;
       return;
     }
 
-    // For consistent styling we render each service rate as a block of rcFormRow items
     listEl.innerHTML = svc.map(s=>{
       const sid = s.id || s._tmpId || `tmp-${Math.random().toString(36).slice(2,8)}`;
       s._tmpId = sid;
@@ -512,7 +554,6 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
           <div class="rcFormRow"><label>Remarks</label><div class="rcValue">${esc(s.remarks||'')}</div></div>
         </div>`;
       } else {
-        // editable layout uses same rcFormRow rows for visual consistency
         return `<div data-sid="${sid}" style="padding:8px;border-bottom:1px solid #f8f8f8">
           <div class="rcFormRow"><label>Category</label><input class="rc_svc_field" data-field="category" value="${esc(s.category||'')}" placeholder="e.g. Band 0"></div>
 
@@ -520,7 +561,7 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
             <label>Rate</label>
             <input class="rc_svc_field" data-field="rate_value" value="${esc(s.rate_value||'')}" placeholder="e.g. 26000" style="width:140px">
             <label style="margin-left:12px;width:60px">Type</label>
-            <input class="rc_svc_field" data-field="rate_type" value="${esc(s.rate_type||'')}" placeholder="free text (e.g. With, Hourly)" style="width:160px">
+            <input class="rc_svc_field" data-field="rate_type" value="${esc(s.rate_type||'')}" placeholder="free text" style="width:160px">
             <div style="margin-left:auto;display:flex;gap:6px">
               <button class="btn small rcSvcSave" data-sid="${sid}">Save</button>
               <button class="btn small rcSvcDel" data-sid="${sid}">✖</button>
@@ -533,46 +574,43 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
       }
     }).join('');
 
-    // wire up buttons inside list
+    // wiring Save/Delete -> use generic createSvc/updateSvc/deleteSvc with svcType
     if(mode !== 'view'){
-      // save buttons
       Array.from(listEl.querySelectorAll('.rcSvcSave')).forEach(btn=>{
-        btn.onclick = async (ev)=>{
+        btn.onclick = async ()=>{
           const sid = btn.dataset.sid;
           const wrapper = listEl.querySelector(`[data-sid="${sid}"]`);
           if(!wrapper) return;
           const fields = wrapper.querySelectorAll('.rc_svc_field');
           const payload = {};
           fields.forEach(inp=>payload[inp.dataset.field] = inp.value);
-          // find matching svc object in ns.services[rec.id].service_rates
-          const svcList = ns.services[rec.id].service_rates || [];
+          const svcList = ns.services[rec.id][svcKey] || [];
           const existing = svcList.find(x=> (x._tmpId && x._tmpId === sid) || (x.id && String(x.id) === sid));
           try {
             if(existing && existing.id){
-              // update
-              const j = await updateServiceRate(existing.id, Object.assign({rate_card_id: rec.id}, payload));
+              const j = await updateSvc(svcType, existing.id, Object.assign({rate_card_id: rec.id}, payload));
               if(j.success){
                 const idx = svcList.findIndex(x => x.id === existing.id);
-                svcList[idx] = j.service_rate;
+                svcList[idx] = j[ Object.keys(j).includes('service_rate') ? 'service_rate' : Object.keys(j).find(k=>k.endsWith('_rate')||k.endsWith('rate')) ] || j.result || j;
               } else {
                 alert('Update failed');
               }
             } else {
-              // create new
               payload.rate_card_id = rec.id;
-              const j = await createServiceRate(payload);
+              const j = await createSvc(svcType, payload);
               if(j.success){
+                // find response key (convention: backend returns created object under a key)
+                const created = j[ Object.keys(j).find(k=>k.includes('_rate')||k==='service_rate' || k==='result') ] || j.service_rate || j.result || j;
                 const idx = svcList.findIndex(x => x._tmpId === sid);
-                if(idx >= 0) svcList.splice(idx, 1, j.service_rate);
-                else svcList.push(j.service_rate);
+                if(idx >= 0) svcList.splice(idx, 1, created);
+                else svcList.push(created);
               } else {
                 alert('Create failed');
               }
             }
-            // re-render
-            ns.services[rec.id].service_rates = svcList;
+            ns.services[rec.id][svcKey] = svcList;
             renderSvcEditor();
-            render(); // update list table
+            render();
           } catch(err){
             console.error(err);
             alert('Request failed');
@@ -580,26 +618,24 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
         };
       });
 
-      // delete buttons
       Array.from(listEl.querySelectorAll('.rcSvcDel')).forEach(btn=>{
         btn.onclick = async ()=>{
           const sid = btn.dataset.sid;
-          const svcList = ns.services[rec.id].service_rates || [];
+          const svcList = ns.services[rec.id][svcKey] || [];
           const existing = svcList.find(x=> x._tmpId === sid || (x.id && String(x.id) === sid));
           if(!existing) return;
           if(existing.id){
-            if(!confirm('Delete this service rate?')) return;
-            const j = await deleteServiceRateAPI(existing.id);
+            if(!confirm('Delete this entry?')) return;
+            const j = await deleteSvc(svcType, existing.id);
             if(j.success){
-              ns.services[rec.id].service_rates = svcList.filter(x=> x.id !== existing.id);
+              ns.services[rec.id][svcKey] = svcList.filter(x=> x.id !== existing.id);
               renderSvcEditor();
               render();
             } else {
               alert('Delete failed');
             }
           } else {
-            // just remove temp row
-            ns.services[rec.id].service_rates = svcList.filter(x=> x._tmpId !== sid);
+            ns.services[rec.id][svcKey] = svcList.filter(x=> x._tmpId !== sid);
             renderSvcEditor();
             render();
           }
@@ -607,6 +643,7 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
       });
     }
   }
+
 
   // when modal is opened, load service rates for this record if not already loaded
   (async ()=>{

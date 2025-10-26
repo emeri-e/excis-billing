@@ -48,22 +48,57 @@ class RateCard(models.Model):
         return f"{self.customer} ({self.region} / {self.country})"
 
 
-class ServiceRate(models.Model):
-    RATE_TYPE_CHOICES = [
-        ('hourly','hourly'),
-        ('day','day'),
-        ('monthly','monthly'),
-        ('fixed','fixed'),
-    ]
-    rate_card = models.ForeignKey(RateCard, on_delete=models.CASCADE, related_name='service_rates')
-    category = models.CharField(max_length=64)  # e.g., 'Dispatch', 'FTE', 'Scheduled Visit'
+class BaseRate(models.Model):
+    """
+    Abstract base model that contains fields used by all rate-like models.
+    """
+    rate_card = models.ForeignKey(RateCard, on_delete=models.CASCADE, related_name="%(class)ss")
+    category = models.CharField(max_length=64)
     region = models.CharField(max_length=128, blank=True)
-    rate_type = models.CharField(max_length=32, default='hourly')
-    rate_value = models.DecimalField(max_digits=12, decimal_places=2)
+    rate_type = models.CharField(max_length=64, blank=True)   # free-text
+    rate_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     after_hours_multiplier = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
     weekend_multiplier = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
     travel_charge = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     remarks = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        abstract = True
+        ordering = ['-id']
 
     def __str__(self):
         return f"{self.rate_card} — {self.category} ({self.region})"
+
+
+# Concrete models
+class ServiceRate(BaseRate):
+    class Meta:
+        verbose_name = "Service Rate"
+        verbose_name_plural = "Service Rates"
+
+
+class DedicatedRate(BaseRate):
+    class Meta:
+        verbose_name = "Dedicated Rate"
+        verbose_name_plural = "Dedicated Rates"
+
+
+class ScheduledRate(BaseRate):
+    class Meta:
+        verbose_name = "Scheduled Rate"
+        verbose_name_plural = "Scheduled Rates"
+
+
+class DispatchRate(BaseRate):
+    class Meta:
+        verbose_name = "Dispatch Rate"
+        verbose_name_plural = "Dispatch Rates"
+
+
+class ProjectRate(BaseRate):
+    class Meta:
+        verbose_name = "Project Rate"
+        verbose_name_plural = "Project Rates"
