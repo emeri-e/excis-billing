@@ -8,8 +8,8 @@
 <style>
 .create-account { max-width: 1000px; margin: 0 auto; }
 .form-header {
-  background: linear-gradient(135deg, #f9f9f9 0%, #e4e4e4 100%);
-  color: white; border-radius: 5px 5px 0 0; padding: 32px;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: white; border-radius: 16px 16px 0 0; padding: 32px;
   text-align: center;
 }
 .form-container {
@@ -42,7 +42,7 @@
   display: flex; gap: 16px; justify-content: flex-end;
   padding: 24px 40px; background: #f9fafb; border-top: 1px solid #e5e7eb;
 }
-/* .btn {
+.btn {
   padding: 12px 24px; border-radius: 8px; font-weight: 600;
   text-decoration: none; transition: all 0.2s; border: none;
   cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
@@ -55,7 +55,7 @@
 }
 .btn-secondary {
   background: white; color: #6b7280; border: 2px solid #d1d5db;
-} */
+}
 
 /* Toggle Section Styles */
 .toggle-section {
@@ -220,7 +220,7 @@
                     Country Code
                   </label>
                   {{ form.new_country_code }}
-                  <div class="help-text">3-letter ISO code (e.g., USA)</div>
+                  <div class="help-text">3-letter ISO code (e.g., KEN, USA)</div>
                   {% if form.new_country_code.errors %}
                     <div class="error-message">{{ form.new_country_code.errors.0 }}</div>
                   {% endif %}
@@ -241,7 +241,6 @@
               </label>
               {{ form.billing_cycle }}
               <div class="help-text">When billing runs should be processed</div>
-              <div class="help-text"><a href="{% url 'customers:create_billing_cycle' %}">Create Billing Cycles</a></div>
               {% if form.billing_cycle.errors %}
                 <div class="error-message">{{ form.billing_cycle.errors.0 }}</div>
               {% endif %}
@@ -333,7 +332,7 @@
       </div>
 
       <div class="form-actions">
-        <button type="button" href="{% url 'customers:accounts_list' %}" class="btn btn-danger" id="cancelAccountCreation">Cancel</button>
+        <a href="{% url 'customers:accounts_list' %}" class="btn btn-secondary">Cancel</a>
         <button type="submit" class="btn btn-primary">Create Account</button>
       </div>
     </form>
@@ -359,16 +358,6 @@ function toggleNewCountry(event) {
   section.classList.toggle('active');
 }
 
-function cancelAccountCreation(event) {
-  if (event) {
-    event.stopPropagation();
-  }
-  const button = document.getElementById("cancelAccountCreation");
-  const href = `${window.location.origin}${button.getAttribute("href")}`;
-  window.location.replace(href);
-  // console.log(href);
-}
-
 document.addEventListener('DOMContentLoaded', function() {
   // Prevent input clicks from toggling sections
   const currencyInputs = document.querySelectorAll('#newCurrencySection input');
@@ -384,9 +373,6 @@ document.addEventListener('DOMContentLoaded', function() {
       e.stopPropagation();
     });
   });
-
-  const cancel = document.querySelector("#cancelAccountCreation");
-  cancel.addEventListener('click', cancelAccountCreation);
 
   // Customer and project dropdown functionality
   const customerSelect = document.getElementById('id_customer');
@@ -405,12 +391,9 @@ document.addEventListener('DOMContentLoaded', function() {
   let selectedProjectId = projectSelect.value || '';
   
   // Function to update project dropdown
-  function updateProjects(customerId) {
-    console.log('Updating projects for customer:', customerId);
-    
+  function updateProjects(customerId) {   
     // Only reset if customer ID is empty and no project is selected
     if (!customerId && !selectedProjectId) {
-      console.log('No customer ID provided, resetting project dropdown');
       projectSelect.innerHTML = '<option value="">Select customer first...</option>';
       projectSelect.disabled = true;
       return;
@@ -418,76 +401,21 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Skip AJAX if customer ID hasn't changed and projects are already loaded
     if (customerId && projectSelect.options.length > 1 && customerSelect.dataset.lastCustomerId === customerId) {
-      console.log('Projects already loaded for customer:', customerId);
       projectSelect.disabled = false;
       return;
     }
     
-    projectSelect.innerHTML = '<option value="">Loading projects...</option>';
-    projectSelect.disabled = true;
     
-    if (customerId) {
-      const url = `{% url 'customers:ajax_load_projects' %}?customer_id=${customerId}`;
-      console.log('Fetching projects from:', url);
-      
-      fetch(url, {
-        method: 'GET',
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      })
-        .then(response => {
-          console.log('Response status:', response.status);
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return response.json();
-        })
-        .then(data => {
-          console.log('Received projects:', data.projects);
-          projectSelect.innerHTML = '<option value="">Select a project...</option>';
-          
-          if (data.projects && Array.isArray(data.projects) && data.projects.length > 0) {
-            data.projects.forEach(project => {
-              console.log('Adding project option:', project);
-              const option = document.createElement('option');
-              option.value = project.id;
-              option.textContent = `${project.name} (${project.code})`;
-              if (project.id == selectedProjectId) {
-                option.selected = true;
-              }
-              projectSelect.appendChild(option);
-            });
-            projectSelect.disabled = false;
-            customerSelect.dataset.lastCustomerId = customerId; // Store last customer ID
-            console.log('Project dropdown updated with', data.projects.length, 'options');
-          } else {
-            console.log('No projects found for customer');
-            projectSelect.innerHTML = '<option value="">No projects available</option>';
-            projectSelect.disabled = true;
-          }
-          
-          // Trigger change event to ensure form validation
-          projectSelect.dispatchEvent(new Event('change'));
-        })
-        .catch(error => {
-          console.error('Error loading projects:', error);
-          projectSelect.innerHTML = '<option value="">Error loading projects</option>';
-          projectSelect.disabled = true;
-        });
-    }
   }
   
   // Attach change event listener
   customerSelect.addEventListener('change', function() {
-    console.log('Customer change event triggered with value:', this.value, 'options:', this.options[this.selectedIndex].text);
     updateProjects(this.value);
   });
   
   // Preserve project selection on change
   projectSelect.addEventListener('change', function() {
     selectedProjectId = this.value;
-    console.log('Selected project ID:', selectedProjectId);
   });
   
   // Auto-uppercase codes
@@ -503,7 +431,6 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Trigger initial load if customer is pre-selected
   if (customerSelect.value) {
-    console.log('Triggering initial project load for pre-selected customer:', customerSelect.value);
     updateProjects(customerSelect.value);
   }
 

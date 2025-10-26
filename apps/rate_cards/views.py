@@ -2,14 +2,121 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
-from .models import RateCard
+from .models import RateCard, ServiceRate
 from apps.customers.models import Customer
+from django.apps import apps
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
+from django.views.decorators.http import require_http_methods
+
+SVC_MODEL_MAP = {
+    'service_rate': 'ServiceRate',
+    'dedicated_rate': 'DedicatedRate',
+    'scheduled_rate': 'ScheduledRate',
+    'dispatch_rate': 'DispatchRate',
+    'project_rate': 'ProjectRate'
+}
+
+def get_svc_model(svc_type):
+    model_name = SVC_MODEL_MAP.get(svc_type)
+    if not model_name:
+        return None
+    return apps.get_model('rate_cards', model_name)  
+
+def svc_rate_to_dict(obj):
+    return {
+        'id': obj.id,
+        'rate_card_id': obj.rate_card_id,
+        'category': obj.category,
+        'region': obj.region,
+        'rate_type': obj.rate_type,
+        'rate_value': float(obj.rate_value),
+        'after_hours_multiplier': float(obj.after_hours_multiplier) if obj.after_hours_multiplier is not None else None,
+        'weekend_multiplier': float(obj.weekend_multiplier) if obj.weekend_multiplier is not None else None,
+        'travel_charge': float(obj.travel_charge),
+        'remarks': obj.remarks,
+        'created_at': obj.created_at.isoformat(),
+        'updated_at': obj.updated_at.isoformat(),
+    }
+
+# list service-like entries for a ratecard (GET)
+@require_http_methods(['GET'])
+def svc_list_for_ratecard(request, pk, svc_type):
+    Model = get_svc_model(svc_type)
+    if not Model:
+        return HttpResponseBadRequest("Unknown service type: {}".format(svc_type))
+    rc = get_object_or_404(RateCard, pk=pk)
+    qs = Model.objects.filter(rate_card=rc).order_by('id') 
+    data = [svc_rate_to_dict(o) for o in qs]
+    return JsonResponse({'results': data})
+
+# create
+@login_required
+@require_http_methods(['POST'])
+def svc_create(request, svc_type):
+    Model = get_svc_model(svc_type)
+    if not Model:
+        return HttpResponseBadRequest("Unknown service type")
+    rate_card_id = request.POST.get('rate_card_id')
+    if not rate_card_id:
+        return HttpResponseBadRequest("rate_card_id required")
+    rc = get_object_or_404(RateCard, pk=rate_card_id)
+    if not (request.user == rc.created_by or request.user.is_staff):
+        return HttpResponseForbidden("Not allowed")
+    obj = Model.objects.create(
+        rate_card = rc,
+        category = request.POST.get('category',''),
+        region = request.POST.get('region',''),
+        rate_type = request.POST.get('rate_type',''),
+        rate_value = request.POST.get('rate_value') or 0,
+        after_hours_multiplier = request.POST.get('after_hours_multiplier') or None,
+        weekend_multiplier = request.POST.get('weekend_multiplier') or None,
+        travel_charge = request.POST.get('travel_charge') or 0,
+        remarks = request.POST.get('remarks',''),
+        created_by = request.user
+    )
+    return JsonResponse({'success': True, svc_type: svc_rate_to_dict(obj)})
+
+# update
+@login_required
+@require_http_methods(['POST'])
+def svc_update(request, svc_type, pk):
+    Model = get_svc_model(svc_type)
+    if not Model:
+        return HttpResponseBadRequest("Unknown service type")
+    obj = get_object_or_404(Model, pk=pk)
+    rc = obj.rate_card
+    if not (request.user == rc.created_by or request.user.is_staff):
+        return HttpResponseForbidden("Not allowed")
+    obj.category = request.POST.get('category', obj.category)
+    obj.region = request.POST.get('region', obj.region)
+    obj.rate_type = request.POST.get('rate_type', obj.rate_type)
+    if request.POST.get('rate_value') is not None:
+        obj.rate_value = request.POST.get('rate_value')
+    obj.after_hours_multiplier = request.POST.get('after_hours_multiplier') or obj.after_hours_multiplier
+    obj.weekend_multiplier = request.POST.get('weekend_multiplier') or obj.weekend_multiplier
+    obj.travel_charge = request.POST.get('travel_charge') or obj.travel_charge
+    obj.remarks = request.POST.get('remarks', obj.remarks)
+    obj.save()
+    return JsonResponse({'success': True, svc_type: svc_rate_to_dict(obj)})
+
+# delete
+@login_required
+@require_http_methods(['POST'])
+def svc_delete(request, svc_type, pk):
+    Model = get_svc_model(svc_type)
+    if not Model:
+        return HttpResponseBadRequest("Unknown service type")
+    obj = get_object_or_404(Model, pk=pk)
+    rc = obj.rate_card
+    if not (request.user == rc.created_by or request.user.is_staff):
+        return HttpResponseForbidden("Not allowed")
+    obj.delete()
+    return JsonResponse({'success': True})
 
 @login_required
 def rate_card_list(request):
     rate_cards = RateCard.objects.select_related('customer').order_by('-created_at')
     
-    # Filter by customer
     customer_filter = request.GET.get('customer')
     if customer_filter:
         rate_cards = rate_cards.filter(customer_id=customer_filter)
@@ -67,14 +174,6 @@ def create_rate_card(request):
     return render(request, 'rate_cards/create.html', context)
 
 
-import json
-from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
-from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import get_object_or_404
-
-from .models import RateCard, ServiceRate, Customer
 
 def ratecard_to_dict(r: RateCard):
     return {
@@ -109,7 +208,6 @@ def service_rate_to_dict(s: ServiceRate):
 
 @require_http_methods(['GET'])
 def ratecard_list(request):
-    # return all ratecards (you may add filtering via GET params later)
     qs = RateCard.objects.select_related('customer','created_by').all().order_by('-updated_at')
     data = [ratecard_to_dict(r) for r in qs]
     return JsonResponse({'results': data})
@@ -117,7 +215,6 @@ def ratecard_list(request):
 @login_required
 @require_http_methods(['POST'])
 def ratecard_create(request):
-    # expects form POST (application/x-www-form-urlencoded or multipart)
     cust_name = request.POST.get('customer') or request.POST.get('customer_name')
     if not cust_name:
         return HttpResponseBadRequest("customer is required")
@@ -139,7 +236,6 @@ def ratecard_create(request):
 def ratecard_detail(request, pk):
     r = get_object_or_404(RateCard, pk=pk)
     data = ratecard_to_dict(r)
-    # include service_rates
     data['service_rates'] = [service_rate_to_dict(s) for s in r.service_rates.all()]
     return JsonResponse({'ratecard': data})
 
@@ -147,10 +243,9 @@ def ratecard_detail(request, pk):
 @require_http_methods(['POST'])
 def ratecard_update(request, pk):
     r = get_object_or_404(RateCard, pk=pk)
-    # optionally check permission: only author or staff
     if not (request.user == r.created_by or request.user.is_staff):
         return HttpResponseForbidden("Not allowed")
-    # apply updates
+
     customer_name = request.POST.get('customer')
     if customer_name:
         customer,_ = Customer.objects.get_or_create(name=customer_name)

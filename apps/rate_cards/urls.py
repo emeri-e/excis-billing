@@ -18,4 +18,9 @@ urlpatterns = [
     path('api/service_rate/<int:pk>/update/', views.service_rate_update, name='service_rate_update'),
     path('api/service_rate/<int:pk>/delete/', views.service_rate_delete, name='service_rate_delete'),
     path('api/service_rate/create/', views.service_rate_create, name='service_rate_create'),
+    path('api/ratecards/<int:pk>/<str:svc_type>s/', views.svc_list_for_ratecard, name='svc_list_for_ratecard'),
+    path('api/<str:svc_type>/create/', views.svc_create, name='svc_create'),
+    path('api/<str:svc_type>/<int:pk>/update/', views.svc_update, name='svc_update'),
+    path('api/<str:svc_type>/<int:pk>/delete/', views.svc_delete, name='svc_delete'),
 ]
+

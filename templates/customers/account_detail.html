@@ -1,5 +1,6 @@
 {% extends 'base/base.html' %}
 {% load static %}
+{% load humanize %}
 
 {% block title %}{{ account.name }} - Account Details{% endblock %}
 
@@ -8,7 +9,7 @@
 {% block extra_css %}
 <style>
 .account-detail {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
@@ -184,7 +185,7 @@
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
 .card {
@@ -430,12 +431,6 @@
       <div class="account-subtitle">{{ account.account_id }} • {{ account.customer.name }}</div>
       
       <div class="account-meta-grid">
-        <div class="meta-item">
-          <svg class="meta-icon" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-          </svg>
-          <span>{{ account.region.name }}</span>
-        </div>
         
         <div class="meta-item">
           <svg class="meta-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -473,7 +468,7 @@
 
   <!-- Action Bar -->
   <div class="action-bar">
-    <a href="{% url 'purchase_orders:create' %}?account={{ account.id }}" class="btn btn-primary">
+    <a href="{% url 'purchase_orders:list' %}" class="btn btn-primary">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
         <path d="M14 2v6h6"/>
@@ -485,12 +480,6 @@
         <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
       </svg>
       Create Billing Run
-    </a>
-    <a href="#" class="btn btn-outline">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-      </svg>
-      Edit Account
     </a>
   </div>
 
@@ -520,16 +509,12 @@
               </span>
             </div>
             <div class="info-item">
-              <span class="info-label">Region</span>
-              <span class="info-value">{{ account.region.name }}</span>
-            </div>
-            <div class="info-item">
               <span class="info-label">Billing Cycle</span>
               <span class="info-value">{{ account.billing_cycle.name }}</span>
             </div>
             <div class="info-item">
               <span class="info-label">Currency</span>
-              <span class="info-value">{{ account.get_currency_display }}</span>
+              <span class="info-value">{{ account.currency }}</span>
             </div>
             <div class="info-item">
               <span class="info-label">Status</span>
@@ -580,11 +565,11 @@
               
               <div class="po-details">
                 <div class="po-detail">
-                  <div class="po-detail-value">${{ po.total_amount|floatformat:0 }}</div>
+                  <div class="po-detail-value">${{ po.total_amount|floatformat:0|intcomma }}</div>
                   <div class="po-detail-label">Total Amount</div>
                 </div>
                 <div class="po-detail">
-                  <div class="po-detail-value">${{ po.remaining_balance|floatformat:0 }}</div>
+                  <div class="po-detail-value">${{ po.remaining_balance|floatformat:0|intcomma }}</div>
                   <div class="po-detail-label">Remaining</div>
                 </div>
                 <div class="po-detail">
@@ -604,7 +589,6 @@
               </div>
               
               <div style="margin-top: 16px; display: flex; gap: 12px;">
-                <a href="{% url 'purchase_orders:detail' po.id %}" class="btn btn-outline btn-sm">View Details</a>
                 {% if po.status == 'active' %}
                 <a href="{% url 'billing:create' %}?po={{ po.id }}" class="btn btn-primary btn-sm">Create Billing</a>
                 {% endif %}
@@ -615,7 +599,7 @@
             <div class="empty-state">
               <h3>No Purchase Orders</h3>
               <p>Create a purchase order to start billing for this account</p>
-              <a href="{% url 'purchase_orders:create' %}?account={{ account.id }}" class="btn btn-primary">
+              <a href="{% url 'purchase_orders:list' %}?account={{ account.id }}" class="btn btn-primary">
                 Create Purchase Order
               </a>
             </div>
@@ -680,11 +664,11 @@
               <div class="stat-mini-label">Active POs</div>
             </div>
             <div class="stat-mini">
-              <div class="stat-mini-value">${{ total_po_value|default:0|floatformat:0 }}</div>
+              <div class="stat-mini-value">${{ total_po_value|default:0|floatformat:0|intcomma }}</div>
               <div class="stat-mini-label">Total Value</div>
             </div>
             <div class="stat-mini">
-              <div class="stat-mini-value">${{ remaining_balance|default:0|floatformat:0 }}</div>
+              <div class="stat-mini-value">${{ remaining_balance|default:0|floatformat:0|intcomma }}</div>
               <div class="stat-mini-label">Remaining</div>
             </div>
           </div>
@@ -726,9 +710,6 @@
               </div>
             </div>
             
-            <a href="{% url 'purchase_orders:detail' account.active_purchase_order.id %}" class="btn btn-outline" style="width: 100%;">
-              View PO Details
-            </a>
           </div>
         </div>
       </div>

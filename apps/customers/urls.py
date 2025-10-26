@@ -20,7 +20,6 @@ urlpatterns = [
     path('accounts/<int:pk>/', views.account_detail, name='account_detail'),
     
     # AJAX endpoints
-    path('ajax/load-projects/', views.load_projects, name='ajax_load_projects'),
     path('ajax/load-accounts/', views.load_accounts, name='ajax_load_accounts'),
     
     # Billing cycle management

@@ -1,5 +1,6 @@
 {% extends 'base/base.html' %}
 {% load static %}
+{% load humanize %}
 
 {% block title %}{{ customer.name }} - Customer Details{% endblock %}
 
@@ -364,13 +365,13 @@
       </svg>
       Add Account
     </a>
-    <a href="{% url 'purchase_orders:create' %}?customer={{ customer.id }}" class="btn btn-outline">
+    <a href="{% url 'purchase_orders:list' %}" class="btn btn-outline">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8s0 0 0 0l-6-6zM16 18H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
       </svg>
       Create Purchase Order
     </a>
-    <a href="#" class="btn btn-outline">
+    <a href="{% url 'customers:edit' pk=customer.id %}" class="btn btn-outline">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
         <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
       </svg>
@@ -394,17 +395,6 @@
       <div class="stat-change positive">Active POs</div>
     </div>
     
-    <div class="stat-card">
-      <div class="stat-number">${{ total_po_value|default:0|floatformat:0 }}</div>
-      <div class="stat-label">Total PO Value</div>
-      <div class="stat-change">All time</div>
-    </div>
-    
-    <div class="stat-card">
-      <div class="stat-number">{{ active_accounts_count|default:0 }}</div>
-      <div class="stat-label">Active Accounts</div>
-      <div class="stat-change positive">Currently billing</div>
-    </div>
   </div>
 
   <!-- Content Tabs -->
@@ -493,14 +483,11 @@
           <tr>
             <td class="mono">{{ po.po_number }}</td>
             <td>{{ po.account.name|default:"—" }}</td>
-            <td>${{ po.total_amount|floatformat:2 }}</td>
-            <td>${{ po.remaining_balance|floatformat:2 }}</td>
+            <td>${{ po.total_amount|floatformat:2|intcomma }}</td>
+            <td>${{ po.remaining_balance|floatformat:2|intcomma }}</td>
             <td>{{ po.valid_until|date:"M d, Y" }}</td>
             <td>
               <span class="status-badge status-{{ po.status }}">{{ po.get_status_display }}</span>
-            </td>
-            <td>
-              <a href="{% url 'purchase_orders:detail' po.id %}" class="btn btn-outline btn-sm">View</a>
             </td>
           </tr>
           {% endfor %}
@@ -510,7 +497,7 @@
       <div class="empty-state">
         <h3>No purchase orders</h3>
         <p>Create the first purchase order for {{ customer.name }}</p>
-        <a href="{% url 'purchase_orders:create' %}?customer={{ customer.id }}" class="btn btn-primary">
+        <a href="{% url 'purchase_orders:list' %}" class="btn btn-primary">
           Create Purchase Order
         </a>
       </div>

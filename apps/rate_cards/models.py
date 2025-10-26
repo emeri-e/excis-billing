@@ -2,23 +2,6 @@ from django.db import models
 from django.contrib.auth.models import User
 from apps.customers.models import Customer
 
-# class RateCard(models.Model):
-#     name = models.CharField(max_length=200)
-#     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
-#     description = models.TextField(blank=True, null=True)
-#     rate_per_unit = models.DecimalField(max_digits=10, decimal_places=4)
-#     unit_type = models.CharField(max_length=50, default='hour')
-#     valid_from = models.DateField()
-#     valid_until = models.DateField()
-#     is_active = models.BooleanField(default=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     created_by = models.ForeignKey(User, on_delete=models.CASCADE)
-    
-#     class Meta:
-#         ordering = ['-created_at']
-
-#     def __str__(self):
-#         return f"{self.name} - {self.customer.name}"
 from django.conf import settings
 
 class RateCard(models.Model):
@@ -61,9 +44,9 @@ class BaseRate(models.Model):
     weekend_multiplier = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
     travel_charge = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     remarks = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
 
     class Meta:
         abstract = True
@@ -75,6 +58,7 @@ class BaseRate(models.Model):
 
 # Concrete models
 class ServiceRate(BaseRate):
+    rate_card = models.ForeignKey(RateCard, on_delete=models.CASCADE, related_name="service_rates")
     class Meta:
         verbose_name = "Service Rate"
         verbose_name_plural = "Service Rates"
@@ -102,3 +86,4 @@ class ProjectRate(BaseRate):
     class Meta:
         verbose_name = "Project Rate"
         verbose_name_plural = "Project Rates"
+        

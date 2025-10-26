@@ -384,12 +384,113 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
   }
 
   function render(){ 
-    if(ns.currentType==='dedicated') renderDedicated();
-    else if(ns.currentType==='scheduled') renderGeneric(ns.scheduledGroups,'scheduled');
-    else if(ns.currentType==='dispatch') renderGeneric(ns.dispatchGroups,'dispatch');
-    else if(ns.currentType==='projects') renderGeneric(ns.projectGroups,'projects');
+    if(ns.currentType==='dedicated') renderGeneric('dedicated');
+    else if(ns.currentType==='scheduled') renderGeneric('scheduled');
+    else if(ns.currentType==='dispatch') renderGeneric('dispatch');
+    else if(ns.currentType==='projects') renderGeneric('projects');
     else if(ns.currentType==='service-rate') renderServiceRateCard();
     else renderDefault();
+  }
+
+  function renderGeneric(key) {
+    // helper to safely get the array for a given ratecard/key
+    const getSvcList = id => {
+      const slot = ns.services[id] && ns.services[id][key];
+      return Array.isArray(slot) ? slot : [];
+    };
+
+    const rowsData = filterData();
+    const categoryOrder = [];
+    const categoryTypes = {}; // { category: Set(types) }
+
+    // optional known ordering for dedicated (keeps previous behavior)
+    const knownOrder = (key === 'dedicated' && Array.isArray(ns.dedicatedCols) && ns.dedicatedCols.length)
+      ? ns.dedicatedCols.slice()
+      : null;
+
+    // discover categories and types from visible rows
+    rowsData.forEach(r => {
+      const svc = getSvcList(r.id);
+      svc.forEach(s => {
+        const cat = String(s.category ?? '—');
+        const t = String(s.rate_type ?? '—');
+        if (!categoryTypes[cat]) categoryTypes[cat] = new Set();
+        categoryTypes[cat].add(t);
+        if (!categoryOrder.includes(cat)) categoryOrder.push(cat);
+      });
+    });
+
+    // merge knownOrder if present so configured categories appear first and all show up
+    if (knownOrder) {
+      const merged = [];
+      knownOrder.forEach(k => { if (categoryOrder.includes(k)) merged.push(k); });
+      categoryOrder.forEach(c => { if (!merged.includes(c)) merged.push(c); });
+      knownOrder.forEach(k => { if (!merged.includes(k)) merged.push(k); });
+      categoryOrder.length = 0;
+      categoryOrder.push(...merged);
+      knownOrder.forEach(k => { if (!categoryTypes[k]) categoryTypes[k] = new Set(); });
+    }
+
+    // build headers
+    const topHeaders = categoryOrder.map(cat => {
+      const types = Array.from(categoryTypes[cat] || []);
+      const colspan = Math.max(1, types.length || 1);
+      return `<th colspan="${colspan}" style="text-align:center">${esc(cat)}</th>`;
+    }).join('');
+
+    const subHeaders = categoryOrder.map(cat => {
+      const types = Array.from(categoryTypes[cat] || []);
+      if (types.length === 0) return `<th>—</th>`;
+      return types.map(t => `<th>${esc(t)}</th>`).join('');
+    }).join('');
+
+    // rows
+    const rowsHtml = rowsData.map((r, idx) => {
+      const svc = getSvcList(r.id);
+      const idxMap = {};
+      svc.forEach(s => {
+        const cat = String(s.category ?? '—');
+        const t = String(s.rate_type ?? '—');
+        idxMap[cat] = idxMap[cat] || {};
+        if (idxMap[cat][t] === undefined) idxMap[cat][t] = s;
+      });
+
+      const cells = categoryOrder.map(cat => {
+        const types = Array.from(categoryTypes[cat] || []);
+        if (types.length === 0) {
+          const s = idxMap[cat] ? (Object.values(idxMap[cat])[0]) : null;
+          const val = s ? String(s.rate_value ?? '—') : '—';
+          return `<td style="text-align:center">${esc(val)}</td>`;
+        }
+        return types.map(t => {
+          const s = (idxMap[cat] && idxMap[cat][t]) ? idxMap[cat][t] : null;
+          const val = s ? String(s.rate_value ?? '—') : '—';
+          return `<td style="text-align:center">${esc(val)}</td>`;
+        }).join('');
+      }).join('');
+
+      return `<tr data-id="${r.id}">
+        ${baseCells(r, idx)}
+        ${cells}
+        <td>${esc(r.status)}</td>
+        <td class="actions">
+          <button class="iconbtn rc-view" data-id="${r.id}">👁️</button>
+          <button class="iconbtn rc-edit" data-id="${r.id}">✏️</button>
+          <button class="iconbtn rc-del" data-id="${r.id}">🗑️</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    // header fallback when no categories discovered
+    let headerHtml;
+    if (categoryOrder.length === 0) {
+      headerHtml = `<tr>${baseCols()}<th>Status</th><th>Actions</th></tr>`;
+    } else {
+      headerHtml = `<tr>${baseCols()}${topHeaders}<th>Status</th><th>Actions</th></tr>
+                    <tr><th colspan="8"></th>${subHeaders}<th colspan="2"></th></tr>`;
+    }
+
+    container.innerHTML = `<table><thead>${headerHtml}</thead><tbody>${rowsHtml || '<tr><td colspan="100%">No rows</td></tr>'}</tbody></table>`;
   }
 
 
@@ -516,35 +617,55 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
     <div class="rcFormRow"><label>Status</label><input id="rcf_status" value="${esc(rec.status||'Active')}" ${readonly}></div>
   `;
 
-  // If current card type is service-rate (or we want service rates visible), include editable list
-  if(svcType === 'service-rate' || svcType !== 'default'){
-    html += `<hr><div style="font-weight:700;margin-bottom:8px">Service Rates</div>`;
-    // build a container for the list; fill it after opening modal by loading from ns.services
-    html += `<div id="rcSvcList" style="max-height:300px;overflow:auto;border:1px solid #eee;padding:8px;border-radius:6px">${'<div style="color:#777">Loading…</div>'}</div>`;
-    if(mode !== 'view') {
-      html += `<div style="margin-top:8px"><button class="btn" id="rcAddSvcBtn">＋ Add Service Rate</button></div>`;
-    }
+  // determine service key and label
+  const svcKey = serviceKeyMap[svcType] || 'service_rates';
+  const svcLabel = svcType === 'service-rate' ? 'Service Rates' : (svcType.charAt(0).toUpperCase() + svcType.slice(1).replace('-', ' '));
+
+  // include service list/editor for every svcType (except 'default' where you may opt-out)
+  if(svcType !== 'default'){
+    html += `<hr><div style="font-weight:700;margin-bottom:8px">${esc(svcLabel)}</div>`;
+    html += `<div id="rcSvcList" style="max-height:320px;overflow:auto;border:1px solid #eee;padding:8px;border-radius:6px">${'<div style="color:#777">Loading…</div>'}</div>`;
+    if(mode !== 'view') html += `<div style="margin-top:8px"><button class="btn" id="rcAddSvcBtn">＋ Add ${esc(svcLabel)}</button></div>`;
   }
 
   modalBody.innerHTML = html;
   modalBackdrop.style.display = 'flex';
 
-  // inside openModal, after building the main modalBody...
-  const svcKey = serviceKeyMap[svcType] || 'service_rates'; // which ns.services[rec.id][svcKey] to use
+  // helper to extract created/updated object from backend response (best-effort)
+  function extractObjectFromResponse(resp, svcTypeKey){
+    if(!resp) return null;
+    // common conventional keys
+    const keysToTry = [
+      svcEndpointMap[svcTypeKey],     // e.g. 'service_rate'
+      serviceKeyMap[svcTypeKey],      // e.g. 'service_rates' (plural)
+      'service_rate','result','data','created','updated'
+    ];
+    for(const k of keysToTry){
+      if(k && resp[k] && typeof resp[k] === 'object') return resp[k];
+    }
+    // look for any object with id
+    for(const k in resp){
+      const v = resp[k];
+      if(v && typeof v === 'object' && ('id' in v)) return v;
+    }
+    // fallback to first result element
+    if(Array.isArray(resp.results) && resp.results.length) return resp.results[0];
+    return null;
+  }
 
+  // render service editor/list
   function renderSvcEditor(){
-    const svc = ns.services[rec.id] && ns.services[rec.id][svcKey] ? ns.services[rec.id][svcKey].slice() : [];
+    const svc = (ns.services[rec.id] && ns.services[rec.id][svcKey]) ? ns.services[rec.id][svcKey].slice() : [];
     const listEl = document.getElementById('rcSvcList');
     if(!listEl) return;
     if(svc.length === 0){
-      listEl.innerHTML = `<div style="color:#777" class="rcFormRow"><label style="width:auto">No entries for this type.</label></div>`;
+      listEl.innerHTML = `<div style="color:#777" class="rcFormRow"><label style="width:auto">No entries for ${esc(svcLabel)}.</label></div>`;
       return;
     }
 
     listEl.innerHTML = svc.map(s=>{
       const sid = s.id || s._tmpId || `tmp-${Math.random().toString(36).slice(2,8)}`;
       s._tmpId = sid;
-
       if(mode === 'view'){
         return `<div data-sid="${sid}" style="padding:8px;border-bottom:1px solid #f2f2f2">
           <div class="rcFormRow"><label>Category</label><div class="rcValue">${esc(s.category||'—')}</div></div>
@@ -574,8 +695,8 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
       }
     }).join('');
 
-    // wiring Save/Delete -> use generic createSvc/updateSvc/deleteSvc with svcType
     if(mode !== 'view'){
+      // Save (create/update)
       Array.from(listEl.querySelectorAll('.rcSvcSave')).forEach(btn=>{
         btn.onclick = async ()=>{
           const sid = btn.dataset.sid;
@@ -586,21 +707,22 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
           fields.forEach(inp=>payload[inp.dataset.field] = inp.value);
           const svcList = ns.services[rec.id][svcKey] || [];
           const existing = svcList.find(x=> (x._tmpId && x._tmpId === sid) || (x.id && String(x.id) === sid));
+
           try {
             if(existing && existing.id){
-              const j = await updateSvc(svcType, existing.id, Object.assign({rate_card_id: rec.id}, payload));
-              if(j.success){
+              const resp = await updateSvc(svcType, existing.id, Object.assign({rate_card_id: rec.id}, payload));
+              if(resp && resp.success){
+                const updatedObj = extractObjectFromResponse(resp, svcType) || resp;
                 const idx = svcList.findIndex(x => x.id === existing.id);
-                svcList[idx] = j[ Object.keys(j).includes('service_rate') ? 'service_rate' : Object.keys(j).find(k=>k.endsWith('_rate')||k.endsWith('rate')) ] || j.result || j;
+                if(idx >= 0) svcList[idx] = updatedObj;
               } else {
                 alert('Update failed');
               }
             } else {
               payload.rate_card_id = rec.id;
-              const j = await createSvc(svcType, payload);
-              if(j.success){
-                // find response key (convention: backend returns created object under a key)
-                const created = j[ Object.keys(j).find(k=>k.includes('_rate')||k==='service_rate' || k==='result') ] || j.service_rate || j.result || j;
+              const resp = await createSvc(svcType, payload);
+              if(resp && resp.success){
+                const created = extractObjectFromResponse(resp, svcType) || resp;
                 const idx = svcList.findIndex(x => x._tmpId === sid);
                 if(idx >= 0) svcList.splice(idx, 1, created);
                 else svcList.push(created);
@@ -618,6 +740,7 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
         };
       });
 
+      // Delete
       Array.from(listEl.querySelectorAll('.rcSvcDel')).forEach(btn=>{
         btn.onclick = async ()=>{
           const sid = btn.dataset.sid;
@@ -626,13 +749,18 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
           if(!existing) return;
           if(existing.id){
             if(!confirm('Delete this entry?')) return;
-            const j = await deleteSvc(svcType, existing.id);
-            if(j.success){
-              ns.services[rec.id][svcKey] = svcList.filter(x=> x.id !== existing.id);
-              renderSvcEditor();
-              render();
-            } else {
-              alert('Delete failed');
+            try {
+              const resp = await deleteSvc(svcType, existing.id);
+              if(resp && resp.success){
+                ns.services[rec.id][svcKey] = svcList.filter(x=> x.id !== existing.id);
+                renderSvcEditor();
+                render();
+              } else {
+                alert('Delete failed');
+              }
+            } catch(err){
+              console.error(err);
+              alert('Delete request failed');
             }
           } else {
             ns.services[rec.id][svcKey] = svcList.filter(x=> x._tmpId !== sid);
@@ -642,44 +770,56 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
         };
       });
     }
-  }
+  } // end renderSvcEditor
 
-
-  // when modal is opened, load service rates for this record if not already loaded
+  // when modal is opened, load this svcType for this record if not already loaded
   (async ()=>{
-    ns.services[rec.id] = ns.services[rec.id] || { service_rates: [] };
+    ns.services[rec.id] = ns.services[rec.id] || {};
+    ns.services[rec.id][svcKey] = ns.services[rec.id][svcKey] || [];
     try{
-      if(!ns.services[rec.id].service_rates || ns.services[rec.id].service_rates.length === 0){
+      // load via typed endpoint helper if empty
+      if(!ns.services[rec.id][svcKey] || ns.services[rec.id][svcKey].length === 0){
         if(id){
-          const res = await fetch(`${API_BASE}/ratecards/${id}/`);
-          if(res.ok){
-            const j = await res.json();
-            ns.services[rec.id].service_rates = j.ratecard ? (j.ratecard.service_rates||[]) : [];
+          // use generic loader (make sure function loadServiceRatesForType exists and accepts svcType)
+          const arr = await loadServiceRatesForType(id, svcType).catch(e=>{
+            console.warn('typed load failed, falling back to ratecard detail', e);
+            return null;
+          });
+          if(Array.isArray(arr)) {
+            ns.services[rec.id][svcKey] = arr;
+          } else {
+            // fallback to fetching ratecard detail and plucking out the array key (best-effort)
+            const res = await fetch(`${API_BASE}/ratecards/${id}/`);
+            if(res.ok){
+              const j = await res.json();
+              // attempt to pick the right array from response
+              const opt = j.ratecard && (j.ratecard[svcKey] || j.ratecard.service_rates || j.ratecard.results);
+              ns.services[rec.id][svcKey] = Array.isArray(opt) ? opt : [];
+            }
           }
         } else {
-          ns.services[rec.id].service_rates = [];
+          ns.services[rec.id][svcKey] = [];
         }
       }
     }catch(err){
-      console.warn('Failed to fetch service rates', err);
-      ns.services[rec.id].service_rates = ns.services[rec.id].service_rates || [];
-    }finally{
+      console.warn('Failed to load entries for', svcType, err);
+      ns.services[rec.id][svcKey] = ns.services[rec.id][svcKey] || [];
+    } finally {
       renderSvcEditor();
       const addBtn = document.getElementById('rcAddSvcBtn');
       if(addBtn){
         addBtn.onclick = ()=>{
-          ns.services[rec.id].service_rates = ns.services[rec.id].service_rates || [];
-          ns.services[rec.id].service_rates.unshift({ category:'', region:'', rate_type:'', rate_value:'', remarks:'', _tmpId:`tmp-${Math.random().toString(36).slice(2,8)}`});
+          ns.services[rec.id][svcKey] = ns.services[rec.id][svcKey] || [];
+          ns.services[rec.id][svcKey].unshift({ category:'', region:'', rate_type:'', rate_value:'', remarks:'', _tmpId:`tmp-${Math.random().toString(36).slice(2,8)}`});
           renderSvcEditor();
         };
       }
     }
   })();
 
-  // Save handler for the main ratecard (not service-rate items)
+  // Save handler for the main ratecard (not svc items)
   saveBtn.onclick = async ()=>{
     if(mode === 'view'){ modalBackdrop.style.display = 'none'; return; }
-    // collect base fields
     const payload = {
       customer: document.getElementById('rcf_customer').value,
       region: document.getElementById('rcf_region').value,
@@ -695,10 +835,7 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
         const j = await createRateCard(payload);
         if(j.success){
           await loadRateCards();
-        } else {
-          alert('Create failed');
-          return;
-        }
+        } else { alert('Create failed'); return; }
       } else {
         const j = await updateRateCard(id, payload);
         if(!j.success){ alert('Update failed'); return; }
@@ -714,6 +851,7 @@ thead tr.rc-band-sub th{background:#243b53;color:#fff;text-align:center;font-wei
 
   cancelBtn.onclick = ()=> modalBackdrop.style.display = 'none';
 }
+
 
 
 
