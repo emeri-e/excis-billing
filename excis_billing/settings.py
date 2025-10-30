@@ -9,10 +9,7 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
 import pymysql
-import os
-
 pymysql.install_as_MySQLdb()
 from pathlib import Path
 from decouple import config
@@ -29,14 +26,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-&r5twgh-a9*=72plnee0sefd*(w$v@js@n+^ydrzbyp(te%$#v"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config("DEBUG_STATUS", False)
+DEBUG = config("DEBUG_STATUS", default=False, cast=bool)
 
-ALLOWED_HOSTS = [
-    "billing.pickfreshdevelopment.site",
-    "www.billing.pickfreshdevelopment.site",
+
+ALLOWED_HOSTS = ['billing.pickfreshdevelopment.site', 'www.billing.pickfreshdevelopment.site', 'localhost',
     "37.59.106.222",
     "vps-f5f38f61.vps.ovh.net",
-    "localhost",
     "127.0.0.1",
 ]
 
@@ -44,69 +39,78 @@ ALLOWED_HOSTS = [
 # Application definition
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
-    "django.contrib.staticfiles",
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'django.contrib.humanize',
+    
     # Third party apps
-    "crispy_forms",
-    "crispy_bootstrap5",
+    'crispy_forms',
+    'crispy_bootstrap5',
+    
     # Local apps
-    "apps.accounts",
-    "apps.dashboard",
-    "apps.customers",
-    "apps.purchase_orders",
-    "apps.billing",
-    "apps.rate_cards",
+    'apps.accounts',
+    'apps.dashboard',
+    'apps.customers',
+    'apps.purchase_orders',
+    'apps.billing',
+    'apps.rate_cards',
 ]
 
 MIDDLEWARE = [
-    "django.middleware.security.SecurityMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.common.CommonMiddleware",
-    "django.middleware.csrf.CsrfViewMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = "excis_billing.urls"
+ROOT_URLCONF = 'excis_billing.urls'
 
 TEMPLATES = [
     {
-        "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],
-        "APP_DIRS": True,
-        "OPTIONS": {
-            "context_processors": [
-                "django.template.context_processors.debug",
-                "django.template.context_processors.request",
-                "django.contrib.auth.context_processors.auth",
-                "django.contrib.messages.context_processors.messages",
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [BASE_DIR / 'templates'],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = "excis_billing.wsgi.application"
+WSGI_APPLICATION = 'excis_billing.wsgi.application'
 
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": config("DB_NAME", default="test_pickfres_billing"),
-        "USER": config("DB_USERNAME", default="test_fres"),
-        "PASSWORD": config("DB_PASSWORD", default="pA?ssWord1234."),
-        "HOST": "localhost",
-        "PORT": "3306",
-        "OPTIONS": {
-            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+    'default': {
+        'ENGINE': 'django.db.backends.mysql', 
+        'NAME': 'pickfres_billing',
+        'USER': 'pickfres_billingAccess',
+        'PASSWORD': 'Templates2025',
+        'HOST': 'localhost',
+        'PORT': '3306',
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
         },
+    }
+} if not DEBUG else {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
 }
 
@@ -116,16 +120,16 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
     {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
     },
     {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
     },
     {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
 
@@ -133,9 +137,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = "en-us"
+LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = "UTC"
+TIME_ZONE = 'UTC'
 
 USE_I18N = True
 
@@ -145,28 +149,27 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = "static/"
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [
-    BASE_DIR / "static",
-    "/var/www/static/",
+    BASE_DIR / 'static',
 ]
 
 # Media files
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # Authentication
-LOGIN_REDIRECT_URL = "/dashboard/"
-LOGOUT_REDIRECT_URL = "/accounts/login/"
-LOGIN_URL = "/accounts/login/"
+LOGIN_REDIRECT_URL = '/dashboard/'
+LOGOUT_REDIRECT_URL = '/accounts/login/'
+LOGIN_URL = '/accounts/login/'
 
 # Crispy Forms
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
@@ -178,100 +181,103 @@ import os
 from pathlib import Path
 
 # Create logs directory if it doesn't exist
-LOGS_DIR = BASE_DIR / "logs"
+LOGS_DIR = BASE_DIR / 'logs'
 LOGS_DIR.mkdir(exist_ok=True)
 
 LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
-            "style": "{",
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
         },
-        "simple": {
-            "format": "{levelname} {asctime} {message}",
-            "style": "{",
+        'simple': {
+            'format': '{levelname} {asctime} {message}',
+            'style': '{',
         },
-        "detailed": {
-            "format": "[{asctime}] {levelname} {name} {funcName}:{lineno} - {message}",
-            "style": "{",
-            "datefmt": "%Y-%m-%d %H:%M:%S",
+        'detailed': {
+            'format': '[{asctime}] {levelname} {name} {funcName}:{lineno} - {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S'
+        }
+    },
+    'filters': {
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
         },
     },
-    "filters": {
-        "require_debug_true": {
-            "()": "django.utils.log.RequireDebugTrue",
-        },
-    },
-    "handlers": {
+    'handlers': {
         # Console handler (what you see in terminal)
-        "console": {
-            "level": "INFO",
-            "filters": ["require_debug_true"],
-            "class": "logging.StreamHandler",
-            "formatter": "simple",
+        'console': {
+            'level': 'INFO',
+            'filters': ['require_debug_true'],
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple'
         },
+        
         # File handler for general app logs
-        "file": {
-            "level": "DEBUG",
-            "class": "logging.FileHandler",
-            "filename": LOGS_DIR
-            / (
-                "django_app_%s_%s_%s.log"
-                % (datetime.now().day, datetime.now().month, datetime.now().year)
-            ),
-            "formatter": "detailed",
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': LOGS_DIR / 'django_app.log',
+            'formatter': 'detailed',
         },
+        
         # Rotating file handler (creates new files when they get too big)
-        "rotating_file": {
-            "level": "DEBUG",
-            "class": "logging.handlers.RotatingFileHandler",
-            "filename": LOGS_DIR / "customers_debug.log",
-            "maxBytes": 1024 * 1024 * 5,  # 5 MB
-            "backupCount": 5,
-            "formatter": "detailed",
+        'rotating_file': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': LOGS_DIR / 'customers_debug.log',
+            'maxBytes': 1024*1024*5,  # 5 MB
+            'backupCount': 5,
+            'formatter': 'detailed',
         },
+        
         # Separate file for errors only
-        "error_file": {
-            "level": "ERROR",
-            "class": "logging.FileHandler",
-            "filename": LOGS_DIR / "errors.log",
-            "formatter": "verbose",
+        'error_file': {
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',
+            'filename': LOGS_DIR / 'errors.log',
+            'formatter': 'verbose',
         },
+        
         # Time-based rotating handler (new file each day)
-        "daily_file": {
-            "level": "DEBUG",
-            "class": "logging.handlers.TimedRotatingFileHandler",
-            "filename": LOGS_DIR / "daily.log",
-            "when": "midnight",
-            "interval": 1,
-            "backupCount": 30,
-            "formatter": "detailed",
-        },
+        'daily_file': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': LOGS_DIR / 'daily.log',
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': 30,
+            'formatter': 'detailed',
+        }
     },
-    "loggers": {
+    'loggers': {
         # Your custom app logger
-        "customers": {
-            "handlers": ["console", "rotating_file", "error_file"],
-            "level": "DEBUG",
-            "propagate": True,
+        'customers': {
+            'handlers': ['console', 'rotating_file', 'error_file'],
+            'level': 'DEBUG',
+            'propagate': True,
         },
+        
         # Django's built-in loggers
-        "django": {
-            "handlers": ["console", "file"],
-            "level": "INFO",
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
         },
+        
         # Database queries (useful for debugging)
-        "django.db.backends": {
-            "handlers": ["daily_file"],
-            "level": "DEBUG",
-            "propagate": False,
+        'django.db.backends': {
+            'handlers': ['daily_file'],
+            'level': 'DEBUG',
+            'propagate': False,
         },
+        
         # Root logger (catches everything)
-        "": {
-            "handlers": ["console", "error_file"],
-            "level": "WARNING",
+        '': {
+            'handlers': ['console', 'error_file'],
+            'level': 'WARNING',
         },
     },
 }

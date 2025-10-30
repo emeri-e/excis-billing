@@ -1,6 +1,6 @@
 import logging
 import json
-from datetime import timezone
+from django.utils import timezone
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -8,38 +8,44 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import JsonResponse
 from decimal import Decimal
+from django.db.models.functions import Lower
 
 from apps.billing.models import BillingRun
-from .models import Customer, Account, BillingCycle, Project, Currency, Country
-from .forms import CustomerForm, AccountForm, ProjectForm, BillingCycleForm, CurrencyForm, CountryForm
+from .models import Customer, Account, BillingCycle, Currency, Country
+from .forms import CustomerForm, AccountForm, BillingCycleForm, CurrencyForm, CountryForm
 
 # Create logger
 logger = logging.getLogger('customers')
 
 @login_required
 def get_customer_accounts_api(request, customer_id):
-    """Get all accounts for a customer"""
+    """Get all accounts for a specific customer"""
+    logger.info(f"Fetching accounts for customer_id: {customer_id}")
     try:
-        accounts = Account.objects.filter(
-            customer_id=customer_id,
+        accounts = Account.objects.select_related(
+            'customer', 'billing_cycle', 'currency', 'country'
+        ).filter(
+            customer_id=customer_id,  # Filter by customer_id
             is_active=True
-        ).order_by('name')
+        ).order_by(Lower('customer__name'), Lower('name'))
         
         account_data = [
             {
                 'id': account.id,
-                'name': account.name,
-                'account_id': account.account_id,
+                'name': account.name or '',  # Handle potential null name
+                'account_id': account.account_id or '',  # Handle potential null account_id
             }
             for account in accounts
         ]
         
+        logger.debug(f"Found {len(account_data)} accounts for customer {customer_id}")
         return JsonResponse({
             'success': True,
             'accounts': account_data
         })
         
     except Exception as e:
+        logger.error(f"Error in get_customer_accounts_api for customer {customer_id}: {str(e)}", exc_info=True)
         return JsonResponse({
             'success': False,
             'error': str(e)
@@ -62,13 +68,13 @@ def customer_accounts_list(request):
     
     try:
         # Step 1: Get customers
-        customers = Customer.objects.filter(is_active=True).order_by('name')
+        customers = Customer.objects.filter(is_active=True).order_by(Lower('name'))
         customers_count = customers.count()
         logger.info(f"Found {customers_count} active customers")
         
         # Step 2: Get accounts with proper select_related
         accounts = Account.objects.select_related(
-            'customer', 'billing_cycle', 'project', 'currency', 'country'
+            'customer', 'billing_cycle', 'currency', 'country'
         ).filter(is_active=True).order_by('customer__name', 'name')
         accounts_count = accounts.count()
         logger.info(f"Found {accounts_count} active accounts")
@@ -197,7 +203,7 @@ def customer_accounts_list(request):
 @login_required
 def customer_list(request):
     """Simple customer list view"""
-    customers = Customer.objects.filter(is_active=True).order_by('-created_at')
+    customers = Customer.objects.filter(is_active=True).order_by(Lower('name'))
     
     # Search functionality
     search_query = request.GET.get('search')
@@ -222,7 +228,7 @@ def customer_list(request):
 
 @login_required
 def create_customer(request):
-    """Create customer with initial project"""
+    """Create customer"""
     if request.method == 'POST':
         form = CustomerForm(request.POST)
         if form.is_valid():
@@ -231,18 +237,10 @@ def create_customer(request):
             customer.created_by = request.user
             customer.save()
             
-            # Create initial project
-            project = Project.objects.create(
-                customer=customer,
-                name=form.cleaned_data['project_name'],
-                code=form.cleaned_data['project_code'],
-                description=form.cleaned_data.get('project_description', ''),
-                created_by=request.user
-            )
             
             messages.success(
                 request, 
-                f'Customer "{customer.name}" and project "{project.name}" created successfully!'
+                f'Customer "{customer.name}" created successfully!'
             )
             return redirect('customers:detail', pk=customer.pk)
         else:
@@ -255,7 +253,7 @@ def create_customer(request):
 
 @login_required
 def create_account(request):
-    """Create a new account with customer and project association"""
+    """Create a new account with customer"""
     if request.method == 'POST':
         form = AccountForm(request.POST)
         if form.is_valid():
@@ -292,11 +290,9 @@ def customer_detail(request, pk):
     
     # Get accounts for this customer
     accounts = customer.accounts.filter(is_active=True).select_related(
-        'billing_cycle', 'project', 'currency', 'country'
+        'billing_cycle', 'currency', 'country'
     ).order_by('-created_at')
     
-    # Get projects for this customer
-    projects = customer.projects.filter(is_active=True).order_by('-created_at')
     
     # Get purchase orders for this customer (if the relationship exists)
     purchase_orders = []
@@ -308,7 +304,6 @@ def customer_detail(request, pk):
     context = {
         'customer': customer,
         'accounts': accounts,
-        'projects': projects,
         'purchase_orders': purchase_orders,
     }
     return render(request, 'customers/detail.html', context)
@@ -318,7 +313,7 @@ def customer_detail(request, pk):
 def account_detail(request, pk):
     """Detail view for a specific account"""
     account = get_object_or_404(Account.objects.select_related(
-        'customer', 'billing_cycle', 'project', 'currency', 'country'
+        'customer', 'billing_cycle', 'currency', 'country'
     ), pk=pk)
     
     # Get purchase orders for this account (if relationship exists)
@@ -394,27 +389,10 @@ def delete_customer(request, pk):
 
 # AJAX Endpoints
 @login_required
-def load_projects(request):
-    """AJAX endpoint to load projects based on customer selection"""
-    customer_id = request.GET.get('customer_id')
-    projects = Project.objects.filter(
-        customer_id=customer_id, 
-        is_active=True
-    ).order_by('name')
-    
-    return JsonResponse({
-        'projects': list(projects.values('id', 'name', 'code'))
-    })
-
-
-@login_required
 def load_accounts(request):
     """AJAX endpoint to load accounts based on customer selection"""
     customer_id = request.GET.get('customer_id')
-    accounts = Account.objects.filter(
-        customer_id=customer_id,
-        is_active=True
-    ).order_by('name')
+    accounts = Account.objects.select_related(...).filter(is_active=True).order_by(Lower('customer__name'), Lower('name'))
     
     return JsonResponse({
         'accounts': list(accounts.values('id', 'name', 'account_id'))
@@ -426,7 +404,7 @@ def load_accounts(request):
 def billing_cycles_list(request):
     """List all billing cycles"""
     billing_cycles = BillingCycle.objects.filter(is_active=True).select_related(
-        'customer', 'account', 'project'
+        'customer', 'account'
     ).order_by('-created_at')
     
     # Search functionality
@@ -451,7 +429,7 @@ def billing_cycles_list(request):
 
 @login_required
 def create_billing_cycle(request):
-    """Create billing cycle with customer, account, and project association"""
+    """Create billing cycle with customer, account association"""
     if request.method == 'POST':
         form = BillingCycleForm(request.POST)
         if form.is_valid():

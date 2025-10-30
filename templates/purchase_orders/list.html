@@ -1,5 +1,6 @@
 {% extends 'base/base.html' %}
 {% load static %}
+{% load humanize %}
 
 {% block title %}Purchase Orders - Excis Billing System{% endblock %}
 
@@ -411,6 +412,36 @@
   background: #fee2e2;
 }
 
+/* Sortable Column Headers */
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 20px !important;
+}
+.sortable:hover {
+  color: var(--brand);
+}
+.sort-icon {
+  position: absolute;
+  right: 8px;
+  font-size: 10px;
+  opacity: 0.4;
+}
+.sortable.active .sort-icon {
+  opacity: 1;
+  color: var(--brand);
+}
+.sortable:not(.active) .sort-icon::after {
+  content: '⇅';
+}
+.sortable.active.asc .sort-icon::after {
+  content: '↑';
+}
+.sortable.active.desc .sort-icon::after {
+  content: '↓';
+}
+
 /* CSV Summary Box */
 .csv-summary {
   background: #f0fdf4;
@@ -568,7 +599,7 @@
       </div>
       <div class="po-card">
         <div class="label">Total Value</div>
-        <div class="value">${{ kpis.total_value|floatformat:0|default:"0" }}</div>
+        <div class="value">${{ kpis.total_value|floatformat:0|intcomma|default:"0" }}</div>
         <div class="hint">Combined PO value</div>
       </div>
       <div class="po-card">
@@ -616,6 +647,17 @@
               {% endfor %}
             </select>
 
+            <select class="po-select" id="fProject">
+              <option value="">All Projects</option>
+              {% for project in projects %}
+                {% if project %}
+                  <option value="{{ project }}" {% if project_filter == project %}selected{% endif %}>
+                    {{ project }}
+                  </option>
+                {% endif %}
+              {% endfor %}
+            </select>
+
             <!-- Show More Info Dropdown -->
             <div class="show-more-wrapper">
               <button type="button" id="showMoreBtn" class="po-btn">Show More Info</button>
@@ -656,15 +698,31 @@
               <th style="width: 40px;">
                 <input type="checkbox" id="select-all" class="po-checkbox" title="Select All" />
               </th>
-              <th>PO NUMBER</th>
-              <th>CUSTOMER</th>
-              <th class="right">TOTAL</th>
-              <th class="right">BALANCE</th>
-              <th>VALID FROM</th>
-              <th>VALID UNTIL</th>
-              <th>STATUS</th>
+              <th class="sortable {% if sort_by == 'po_number' %}active {{ order }}{% endif %}" data-sort="po_number">
+                PO NUMBER<span class="sort-icon"></span>
+              </th>
+              <th class="sortable {% if sort_by == 'customer' %}active {{ order }}{% endif %}" data-sort="customer">
+                CUSTOMER<span class="sort-icon"></span>
+              </th>
+              <th class="sortable right {% if sort_by == 'total' %}active {{ order }}{% endif %}" data-sort="total">
+                TOTAL<span class="sort-icon"></span>
+              </th>
+              <th>
+                BALANCE</span>
+              </th>
+              <th class="sortable {% if sort_by == 'valid_from' %}active {{ order }}{% endif %}" data-sort="valid_from">
+                VALID FROM<span class="sort-icon"></span>
+              </th>
+              <th class="sortable {% if sort_by == 'valid_until' %}active {{ order }}{% endif %}" data-sort="valid_until">
+                VALID UNTIL<span class="sort-icon"></span>
+              </th>
+              <th class="sortable {% if sort_by == 'status' %}active {{ order }}{% endif %}" data-sort="status">
+                STATUS<span class="sort-icon"></span>
+              </th>
               <th>ACTIONS</th>
-              <th class="hidden" data-col="project">PROJECT</th>
+              <th class="sortable hidden {% if sort_by == 'project' %}active {{ order }}{% endif %}" data-col="project" data-sort="project">
+                PROJECT<span class="sort-icon"></span>
+              </th>
               <th class="hidden" data-col="sdm">SDM</th>
               <th class="hidden" data-col="billto">BILL TO</th>
               <th class="hidden" data-col="billaddr">BILLING ADDRESS</th>
@@ -686,10 +744,10 @@
               <td>
                 <div style="font-weight:600">{{ po.customer.name }}</div>
               </td>
-              <td class="right">{{ po.total_amount|floatformat:2 }} {{ po.currency }}</td>
+              <td class="right">{{ po.total_amount|floatformat:2|intcomma }} {{ po.currency }}</td>
               <td class="right">
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-                  <div>{{ po.remaining_balance|floatformat:2 }} {{ po.currency }}</div>
+                  <div>{{ po.remaining_balance|floatformat:2|intcomma }} {{ po.currency }}</div>
                   <div class="progress">
                     <div class="bar" style="width:{{ po.utilization_percentage|floatformat:0 }}%"></div>
                   </div>
@@ -725,16 +783,16 @@
 
       <!-- Footer -->
       <div class="po-footer">
-        <div id="resultInfo">Showing {{ purchase_orders|length }} of {{ total_count }} results</div>
+        <div id="resultInfo"></div>
         <div style="display:flex;gap:6px">
           {% if purchase_orders.has_previous %}
-          <a href="?page={{ purchase_orders.previous_page_number }}&status={{ status_filter|default:'' }}&customer={{ customer_filter|default:'' }}&currency={{ currency_filter|default:'' }}&search={{ search_query|default:'' }}" class="po-btn">Previous</a>
+          <a href="?page={{ purchase_orders.previous_page_number }}&status={{ status_filter|default:'' }}&customer={{ customer_filter|default:'' }}&currency={{ currency_filter|default:'' }}&project={{ project_filter|default:'' }}&search={{ search_query|default:'' }}&sort={{ sort_by|default:'' }}&order={{ order|default:'' }}" class="po-btn">Previous</a>
           {% else %}
           <button class="po-btn" disabled>Previous</button>
           {% endif %}
           
           {% if purchase_orders.has_next %}
-          <a href="?page={{ purchase_orders.next_page_number }}&status={{ status_filter|default:'' }}&customer={{ customer_filter|default:'' }}&currency={{ currency_filter|default:'' }}&search={{ search_query|default:'' }}" class="po-btn">Next</a>
+          <a href="?page={{ purchase_orders.next_page_number }}&status={{ status_filter|default:'' }}&customer={{ customer_filter|default:'' }}&currency={{ currency_filter|default:'' }}&project={{ project_filter|default:'' }}&search={{ search_query|default:'' }}&sort={{ sort_by|default:'' }}&order={{ order|default:'' }}" class="po-btn">Next</a>
           {% else %}
           <button class="po-btn" disabled>Next</button>
           {% endif %}
@@ -1472,20 +1530,20 @@ async function loadAccounts(customerId, selectAccountName = null) {
   try {
     const response = await fetch(`/customers/api/${customerId}/accounts/`);
     const result = await response.json();
-    
+   
     const accountSelect = document.getElementById('account');
     const accountNewInput = document.getElementById('account-new');
-    accountSelect.innerHTML = '<option value="">-- Select or enter new --</option>';
-    
+    accountSelect.innerHTML = '<option>-- Select or enter new --</option>'; // Use valid HTML for the default option
+   
     if (result.success) {
       let matchFound = false;
-      
+     
       result.accounts.forEach(acc => {
         const option = document.createElement('option');
         option.value = acc.id;
         option.textContent = acc.name;
         accountSelect.appendChild(option);
-        
+       
         // Auto-select if name matches (case-insensitive)
         if (selectAccountName && acc.name.toLowerCase().trim() === selectAccountName.toLowerCase().trim()) {
           accountSelect.value = acc.id;
@@ -1493,10 +1551,22 @@ async function loadAccounts(customerId, selectAccountName = null) {
           matchFound = true;
         }
       });
-      
+     
       // If no match was found and we have a selectAccountName, keep it in the custom input
       if (selectAccountName && !matchFound) {
         accountNewInput.value = selectAccountName;
+      }
+
+      // Refresh Bootstrap Select (if used)
+      if (typeof $(accountSelect).selectpicker === 'function') {
+        $(accountSelect).selectpicker('refresh');
+      }
+
+      // Refresh Select2 (if used)
+      if (typeof $(accountSelect).select2 === 'function') {
+        $(accountSelect).trigger('change'); // Trigger change to update Select2
+        // Alternatively, reinitialize Select2 if needed:
+        $(accountSelect).select2();
       }
     }
   } catch (error) {
@@ -1733,7 +1803,7 @@ document.getElementById('po-tbody').addEventListener('click', async (e) => {
 });
 
 // Filters
-const filterInputs = ['fCustomer', 'fStatus', 'fCurrency', 'fSearch'];
+const filterInputs = ['fCustomer', 'fStatus', 'fCurrency', 'fProject', 'fSearch'];
 filterInputs.forEach(id => {
   document.getElementById(id).addEventListener('change', applyFilters);
 });
@@ -1745,11 +1815,13 @@ function applyFilters() {
   const customer = document.getElementById('fCustomer').value;
   const status = document.getElementById('fStatus').value;
   const currency = document.getElementById('fCurrency').value;
+  const project = document.getElementById('fProject').value;  
   const search = document.getElementById('fSearch').value;
   
   if (customer) params.set('customer', customer);
   if (status) params.set('status', status);
   if (currency) params.set('currency', currency);
+  if (project) params.set('project', project);  
   if (search) params.set('search', search);
   
   window.location.href = '?' + params.toString();
@@ -1870,9 +1942,7 @@ async function uploadBulkCSV(file) {
   }
 }
 
-function displayBulkCSVSummary(data) {
-  console.log('displayBulkCSVSummary called');
-  
+function displayBulkCSVSummary(data) { 
   const records = data.po_records || [];
   const uniqueAccounts = new Set(records.map(r => r.account_name).filter(a => a)).size;
   const uniquePOs = new Set(records.map(r => r.po_number).filter(p => p)).size;
@@ -1881,15 +1951,9 @@ function displayBulkCSVSummary(data) {
   document.getElementById('bulk-csv-unique-accounts').textContent = uniqueAccounts;
   document.getElementById('bulk-csv-unique-pos').textContent = uniquePOs;
   
-  console.log(`Summary: ${records.length} records, ${uniqueAccounts} unique accounts, ${uniquePOs} unique POs`);
-  
-  // NOTE: Don't populate account dropdown here - it's in Step 2 which is hidden
-  // It will be populated when user clicks "Next" button
 }
 
-function populateBulkAccountDropdown(data) {
-  console.log('populateBulkAccountDropdown called with data:', data);
-  
+function populateBulkAccountDropdown(data) {  
   const accountFilter = document.getElementById('bulk-account-filter');
   if (!accountFilter) {
     console.error('bulk-account-filter element not found!');
@@ -1903,21 +1967,16 @@ function populateBulkAccountDropdown(data) {
     return;
   }
   
-  console.log(`Total po_records: ${data.po_records.length}`);
-  
   // Get unique account names from CSV data
   const uniqueAccounts = new Set();
   data.po_records.forEach((record, index) => {
     const accountName = record.account_name;
     if (index < 5) {
-      console.log(`Record ${index} account_name:`, accountName);
     }
     if (accountName && accountName.trim()) {
       uniqueAccounts.add(accountName.trim());
     }
   });
-  
-  console.log(`Found ${uniqueAccounts.size} unique accounts:`, Array.from(uniqueAccounts).slice(0, 10));
   
   // Sort accounts alphabetically
   const sortedAccounts = Array.from(uniqueAccounts).sort();
@@ -1930,8 +1989,6 @@ function populateBulkAccountDropdown(data) {
     accountFilter.appendChild(option);
   });
   
-  console.log(`✓ Populated ${sortedAccounts.length} accounts in bulk dropdown`);
-  console.log('Dropdown now has', accountFilter.options.length, 'options');
 }
 
 // Navigation buttons
@@ -1948,7 +2005,6 @@ document.getElementById('bulk-next-btn').addEventListener('click', () => {
   document.getElementById('bulk-import-btn').style.display = 'inline-flex';
   document.getElementById('bulk-back-btn').style.display = 'inline-flex';
   
-  console.log('Populating account dropdown in Step 2...');
   populateBulkAccountDropdown(bulkCsvData);
   updateBulkRecordPreview();
   
@@ -2106,6 +2162,34 @@ document.getElementById('bulk-import-btn').addEventListener('click', async () =>
     importText.style.display = 'inline';
     importSpinner.style.display = 'none';
   }
+});
+
+// Sorting functionality
+document.querySelectorAll('.sortable').forEach(header => {
+  header.addEventListener('click', function() {
+    const sortField = this.dataset.sort;
+    const currentParams = new URLSearchParams(window.location.search);
+    
+    // Get current sort and order
+    const currentSort = currentParams.get('sort');
+    const currentOrder = currentParams.get('order') || 'desc';
+    
+    // Determine new order
+    let newOrder = 'asc';
+    if (currentSort === sortField && currentOrder === 'asc') {
+      newOrder = 'desc';
+    }
+    
+    // Set new sort parameters
+    currentParams.set('sort', sortField);
+    currentParams.set('order', newOrder);
+    
+    // Reset to page 1 when sorting changes
+    currentParams.delete('page');
+    
+    // Navigate to new URL
+    window.location.href = '?' + currentParams.toString();
+  });
 });
 </script>
 {% endblock %}

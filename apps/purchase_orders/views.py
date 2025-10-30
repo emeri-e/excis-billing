@@ -18,21 +18,53 @@ logger = logging.getLogger(__name__)
 
 @login_required
 def purchase_order_list(request):
-    """Enhanced purchase order list with KPIs"""
-    pos = PurchaseOrder.objects.select_related('customer', 'account').order_by('-created_at')
+    """Enhanced purchase order list with KPIs and sorting"""
+    pos = PurchaseOrder.objects.select_related('customer', 'account')
     
     # Filters
     status_filter = request.GET.get('status')
     customer_filter = request.GET.get('customer')
     currency_filter = request.GET.get('currency')
+    project_filter = request.GET.get('project')  # NEW: Project filter
     search_query = request.GET.get('search')
     
+    # NEW: Sorting
+    sort_by = request.GET.get('sort', 'created_at')  # Default sort by created date
+    order = request.GET.get('order', 'desc')  # Default order is descending
+    
+    # Map frontend sort fields to database fields
+    sort_mapping = {
+        'po_number': 'po_number',
+        'customer': 'customer__name',
+        'total': 'total_amount',
+        'balance': 'remaining_balance',
+        'valid_from': 'valid_from',
+        'valid_until': 'valid_until',
+        'status': 'status',
+        'project': 'project',
+        'created_at': 'created_at',
+    }
+    
+    # Get the actual database field
+    db_field = sort_mapping.get(sort_by, 'created_at')
+    
+    # Apply order direction
+    if order == 'desc':
+        order_field = f'-{db_field}'
+    else:
+        order_field = db_field
+    
+    pos = pos.order_by(order_field)
+    
+    # Apply filters
     if status_filter:
         pos = pos.filter(status=status_filter)
     if customer_filter:
         pos = pos.filter(customer_id=customer_filter)
     if currency_filter:
         pos = pos.filter(currency=currency_filter)
+    if project_filter:  # NEW: Apply project filter
+        pos = pos.filter(project=project_filter)
     if search_query:
         pos = pos.filter(Q(po_number__icontains=search_query))
     
@@ -63,20 +95,25 @@ def purchase_order_list(request):
     # Filter options
     customers = Customer.objects.filter(is_active=True).order_by('name')
     currencies = PurchaseOrder.objects.values_list('currency', flat=True).distinct().order_by('currency')
-    print("Distinct currencies:", list(currencies))
+    projects = PurchaseOrder.objects.exclude(project__isnull=True).exclude(project='').values_list('project', flat=True).distinct().order_by('project')  # NEW: Get unique projects
+    
     
     context = {
         'purchase_orders': pos,
         'kpis': kpis,
         'customers': customers,
         'currencies': currencies,
+        'projects': projects,  # NEW: Add projects
         'status_filter': status_filter,
         'customer_filter': customer_filter,
         'currency_filter': currency_filter,
+        'project_filter': project_filter,  # NEW: Add project filter
         'search_query': search_query,
         'status_choices': PurchaseOrder.STATUS_CHOICES,
         'total_count': total_count,
         'unread_notifications': unread_notifications,
+        'sort_by': sort_by,  # NEW: Add sort parameter
+        'order': order,  # NEW: Add order parameter
     }
     return render(request, 'purchase_orders/list.html', context)
 
@@ -247,6 +284,7 @@ def bulk_create_pos_from_csv(request):
         # Track creation results
         created_pos = []
         created_accounts = []
+        matched_accounts = []
         errors = []
         
         # Create POs from records
@@ -257,14 +295,47 @@ def bulk_create_pos_from_csv(request):
                 
                 # Get or create account
                 if account_name:
-                    try:
-                        account = Account.objects.get(
+                    # ============================================
+                    # CRITICAL FIX: Try multiple matching strategies
+                    # ============================================
+                    
+                    # Strategy 1: Exact case-insensitive match by name
+                    account = Account.objects.filter(
+                        customer=customer,
+                        name__iexact=account_name,
+                        is_active=True
+                    ).first()
+                    
+                    # Strategy 2: Try matching by account_id if provided in CSV
+                    if not account:
+                        account_id_from_csv = record.get('account_id', '').strip()
+                        if account_id_from_csv:
+                            account = Account.objects.filter(
+                                customer=customer,
+                                account_id__iexact=account_id_from_csv,
+                                is_active=True
+                            ).first()
+                    
+                    # Strategy 3: Fuzzy match - check for similar names
+                    # (e.g., "Google Inc" vs "Google Inc." vs "Google")
+                    if not account:
+                        # Remove common suffixes and punctuation for matching
+                        clean_name = account_name.replace('.', '').replace(',', '').strip()
+                        
+                        similar_accounts = Account.objects.filter(
                             customer=customer,
-                            name__iexact=account_name,
                             is_active=True
                         )
-                    except Account.DoesNotExist:
-                        # Create new account
+                        
+                        for acc in similar_accounts:
+                            acc_clean = acc.name.replace('.', '').replace(',', '').strip()
+                            if acc_clean.lower() == clean_name.lower():
+                                account = acc
+                                logger.info(f"Matched '{account_name}' to existing account '{acc.name}' (fuzzy match)")
+                                break
+                    
+                    # Only create NEW account if no match found
+                    if not account:
                         from apps.customers.models import Currency, BillingCycle
                         
                         currency_code = record.get('currency', 'USD')
@@ -278,23 +349,39 @@ def bulk_create_pos_from_csv(request):
                             defaults={'cycle_type': 'monthly', 'customer': customer}
                         )
                         
+                        # Generate unique account_id
                         account_id_str = f"{customer.code}-{account_name[:3].upper()}-{idx+1:03d}"
+                        counter = 1
+                        original_id = account_id_str
+                        while Account.objects.filter(account_id=account_id_str).exists():
+                            account_id_str = f"{original_id[:-3]}{counter:03d}"
+                            counter += 1
                         
                         account = Account.objects.create(
                             customer=customer,
                             name=account_name,
                             account_id=account_id_str,
-                            region='Global',
+                            region=record.get('region', 'Global'),
                             billing_cycle=billing_cycle,
                             currency=currency,
                             created_by=request.user
                         )
                         created_accounts.append(account.name)
+                        logger.info(f"Created NEW account: {account.name} ({account.account_id})")
+                    else:
+                        matched_accounts.append(account.name)
+                        logger.info(f"Matched EXISTING account: {account.name} ({account.account_id})")
                 
-                # Generate PO number
-                po_number = record.get('po_number', '')
+                # Generate PO number if not provided
+                po_number = record.get('po_number', '').strip()
                 if not po_number:
                     po_number = f"PO-{customer.code}-{date.today().year}-{idx+1:04d}"
+                
+                # Check if PO already exists
+                if PurchaseOrder.objects.filter(po_number=po_number).exists():
+                    errors.append(f"Row {idx + 1}: PO {po_number} already exists")
+                    logger.warning(f"Skipping duplicate PO: {po_number}")
+                    continue
                 
                 # Create PO
                 po = PurchaseOrder.objects.create(
@@ -321,9 +408,11 @@ def bulk_create_pos_from_csv(request):
                 )
                 
                 created_pos.append(po.po_number)
+                logger.info(f"Created PO: {po.po_number} for account {account.name}")
             
             except Exception as e:
                 errors.append(f"Row {idx + 1}: {str(e)}")
+                logger.error(f"Error creating PO for row {idx + 1}: {e}", exc_info=True)
                 continue
         
         # Link CSV upload to first PO
@@ -347,11 +436,14 @@ def bulk_create_pos_from_csv(request):
             'success': True,
             'created_pos': len(created_pos),
             'created_accounts': len(created_accounts),
+            'matched_accounts': len(matched_accounts),
             'errors': len(errors),
             'po_numbers': created_pos,
-            'account_names': created_accounts,
+            'new_account_names': created_accounts,
+            'matched_account_names': matched_accounts,
             'error_details': errors if errors else None,
             'message': f'Created {len(created_pos)} POs successfully' + 
+                      (f' ({len(created_accounts)} new accounts, {len(matched_accounts)} matched existing)' if created_accounts or matched_accounts else '') +
                       (f' with {len(errors)} errors' if errors else '')
         })
         
@@ -395,44 +487,86 @@ def create_purchase_order_api(request):
         else:
             return JsonResponse({'success': False, 'error': 'Customer is required'}, status=400)
         
-        # Get or create account
+        # ============================================
+        # CRITICAL FIX: Get or create account with proper matching
+        # ============================================
         account = None
-        account_id = data.get('account_id')
+        account_id_param = data.get('account_id')
         account_name = data.get('account_name', '').strip()
         
-        if account_id:
-            account = get_object_or_404(Account, id=account_id, customer=customer, is_active=True)
+        if account_id_param:
+            # If account ID is provided, use it directly
+            account = get_object_or_404(Account, id=account_id_param, customer=customer, is_active=True)
+            logger.info(f"Using existing account by ID: {account.name} ({account.account_id})")
+            
         elif account_name:
-            # Create new account
-            from apps.customers.models import Currency, BillingCycle
+            # Try to find existing account first
             
-            currency, _ = Currency.objects.get_or_create(
-                code=data.get('currency', 'USD'),
-                defaults={'name': data.get('currency', 'USD')}
-            )
-            
-            billing_cycle, _ = BillingCycle.objects.get_or_create(
-                name='Monthly',
-                defaults={'cycle_type': 'monthly', 'customer': customer}
-            )
-            
-            account_id_str = f"{customer.code}-{account_name[:3].upper()}-001"
-            counter = 1
-            original_id = account_id_str
-            while Account.objects.filter(account_id=account_id_str).exists():
-                account_id_str = f"{original_id[:-3]}{counter:03d}"
-                counter += 1
-            
-            account = Account.objects.create(
+            # Strategy 1: Exact case-insensitive match by name
+            account = Account.objects.filter(
                 customer=customer,
-                name=account_name,
-                account_id=account_id_str,
-                region=data.get('region', 'Global'),
-                billing_cycle=billing_cycle,
-                currency=currency,
-                created_by=request.user
-            )
-            messages.success(request, f"Created new account: {account.name}")
+                name__iexact=account_name,
+                is_active=True
+            ).first()
+            
+            # Strategy 2: Fuzzy match - check for similar names
+            if not account:
+                clean_name = account_name.replace('.', '').replace(',', '').strip()
+                
+                similar_accounts = Account.objects.filter(
+                    customer=customer,
+                    is_active=True
+                )
+                
+                for acc in similar_accounts:
+                    acc_clean = acc.name.replace('.', '').replace(',', '').strip()
+                    if acc_clean.lower() == clean_name.lower():
+                        account = acc
+                        logger.info(f"Matched '{account_name}' to existing account '{acc.name}' (fuzzy match)")
+                        break
+            
+            # Only create NEW account if no match found
+            if not account:
+                from apps.customers.models import Currency, BillingCycle
+                
+                currency, _ = Currency.objects.get_or_create(
+                    code=data.get('currency', 'USD'),
+                    defaults={'name': data.get('currency', 'USD')}
+                )
+                
+                billing_cycle, _ = BillingCycle.objects.get_or_create(
+                    name='Monthly',
+                    defaults={'cycle_type': 'monthly', 'customer': customer}
+                )
+                
+                # Generate unique account_id
+                account_id_str = f"{customer.code}-{account_name[:3].upper()}-001"
+                counter = 1
+                original_id = account_id_str
+                while Account.objects.filter(account_id=account_id_str).exists():
+                    account_id_str = f"{original_id[:-3]}{counter:03d}"
+                    counter += 1
+                
+                account = Account.objects.create(
+                    customer=customer,
+                    name=account_name,
+                    account_id=account_id_str,
+                    region=data.get('region', 'Global'),
+                    billing_cycle=billing_cycle,
+                    currency=currency,
+                    created_by=request.user
+                )
+                messages.success(request, f"Created new account: {account.name}")
+                logger.info(f"Created NEW account: {account.name} ({account.account_id})")
+            else:
+                logger.info(f"Using EXISTING account: {account.name} ({account.account_id})")
+        
+        # Check if account was found or created
+        if not account:
+            return JsonResponse({
+                'success': False,
+                'error': 'Account is required. Please provide account_id or account_name.'
+            }, status=400)
         
         # Parse dates from string to date objects
         from datetime import datetime
@@ -450,9 +584,23 @@ def create_purchase_order_api(request):
         except (ValueError, TypeError):
             valid_until = date.today()
         
+        # Validate PO number is unique
+        po_number = data.get('po_number', '').strip()
+        if not po_number:
+            return JsonResponse({
+                'success': False,
+                'error': 'PO number is required'
+            }, status=400)
+        
+        if PurchaseOrder.objects.filter(po_number=po_number).exists():
+            return JsonResponse({
+                'success': False,
+                'error': f'PO number {po_number} already exists'
+            }, status=400)
+        
         # Create PO
         po = PurchaseOrder.objects.create(
-            po_number=data.get('po_number', ''),
+            po_number=po_number,
             customer=customer,
             account=account,
             currency=data.get('currency', 'USD'),
@@ -472,6 +620,8 @@ def create_purchase_order_api(request):
             client_year=data.get('client_year', ''),
             created_by=request.user
         )
+        
+        logger.info(f"Created PO: {po.po_number} for customer {customer.name}, account {account.name}")
         
         # Link CSV if exists
         csv_upload_id = request.session.get('csv_upload_id')

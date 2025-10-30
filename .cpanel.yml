@@ -1,0 +1,38 @@
+# .cpanel.yml
+# Place this at the repository root. Adjust APP_DIR to your repository folder name.
+# This variant uses an in-repo virtualenv at $APP_DIR/.venv and touches passenger_wsgi.py to reload.
+
+version: 2
+
+environment:
+  # Match your django_wsgi.py settings module
+  DJANGO_SETTINGS_MODULE: "excis_billing.settings"
+  PYTHON: "python3"
+  APP_DIR: "/home/$USER/respositories/excis-billing"     # <-- replace <repo-folder> with your repo directory name
+  VENV_PATH: "/home/$USER/respositories/excis-billing/.venv"
+  PIP_ENV_OPTS: "--no-cache-dir"
+
+deployment:
+  pre_deploy:
+    - "echo 'Starting cPanel deploy hook: pre_deploy'"
+    - "[ -d \"$VENV_PATH\" ] || $PYTHON -m venv \"$VENV_PATH\""
+    - "echo 'Virtualenv ready at $VENV_PATH'"
+
+  deploy:
+    # Activate venv and install python deps
+    - "source \"$VENV_PATH/bin/activate\" && pip install --upgrade pip setuptools wheel"
+    - "source \"$VENV_PATH/bin/activate\" && pip install -r requirements.txt $PIP_ENV_OPTS"
+
+    # Ensure environment variable available for management commands
+    - "export DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE}"
+
+    # Run migrations and collectstatic
+    - "source \"$VENV_PATH/bin/activate\" && python manage.py migrate --noinput"
+    - "source \"$VENV_PATH/bin/activate\" && python manage.py collectstatic --noinput --clear"
+
+    # Touch passenger_wsgi.py to trigger reload (Passenger will pick this up)
+    - "if [ -f \"$APP_DIR/passenger_wsgi.py\" ]; then touch \"$APP_DIR/passenger_wsgi.py\"; echo 'Touched passenger_wsgi.py'; else echo 'passenger_wsgi.py not found at $APP_DIR'; fi"
+
+  post_deploy:
+    - "echo 'Deployment finished at '$(date)"
+    - "echo 'Make sure environment secrets (DB, SECRET_KEY) are configured via cPanel Application Manager or an excluded .env file.'"

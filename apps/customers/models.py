@@ -24,23 +24,6 @@ class Customer(models.Model):
         return self.accounts.filter(is_active=True).count()
 
 
-class Project(models.Model):
-    """Project entity linked to a customer"""
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='projects')
-    name = models.CharField(max_length=200)
-    code = models.CharField(max_length=50)
-    description = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_projects')
-    is_active = models.BooleanField(default=True)
-    
-    class Meta:
-        ordering = ['-created_at']
-        unique_together = [('customer', 'code')]
-    
-    def __str__(self):
-        return f"{self.customer.code}-{self.code}: {self.name}"
-
 
 class Country(models.Model):
     """Country model for account organization"""
@@ -90,8 +73,6 @@ class BillingCycle(models.Model):
                                  related_name='associated_billing_cycles')
     account = models.ForeignKey('Account', on_delete=models.CASCADE, null=True, blank=True,
                                 related_name='associated_billing_cycles')
-    project = models.ForeignKey(Project, on_delete=models.CASCADE, null=True, blank=True,
-                               related_name='associated_billing_cycles')
     
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
@@ -104,9 +85,6 @@ class BillingCycle(models.Model):
         parts = [self.name]
         if self.customer:
             parts.append(f"({self.customer.code}")
-            if self.project:
-                parts.append(f"- {self.project.code}")
-            parts.append(")")
         return " ".join(parts)
 
 
@@ -120,8 +98,7 @@ class Account(models.Model):
     
     # Basic Information
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='accounts')
-    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='accounts', 
-                                null=True, blank=True)
+
     name = models.CharField(max_length=200)
     account_id = models.CharField(max_length=100, unique=True)
     
@@ -212,7 +189,7 @@ class Account(models.Model):
         active_po = self.active_purchase_order
         
         if not active_po:
-            self.status = 'missing_po'
+            self.status = 'inactive'
         elif active_po.remaining_balance <= (active_po.total_amount * Decimal('0.2')):
             self.status = 'low_po_balance'
         else:
